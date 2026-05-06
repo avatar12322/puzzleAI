@@ -119,3 +119,19 @@ def delete_cloud_raw_file(public_id):
     except Exception as e:
         print(f"⚠️ Błąd usuwania pliku z Cloudinary: {e}")
         return False
+
+def get_zip_url(public_ids, filename="puzzle_collection"):
+    """Generuje URL do pobrania paczki ZIP z wybranymi plikami z Cloudinary."""
+    try:
+        import cloudinary.utils
+        # Generujemy URL do archiwum ZIP
+        url = cloudinary.utils.download_zip_url(
+            public_ids=public_ids,
+            target_public_id=filename,
+            resource_type="image",
+            flatten_folders=True
+        )
+        return url
+    except Exception as e:
+        print(f"⚠️ Błąd generowania ZIP URL: {e}")
+        return None

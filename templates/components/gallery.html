@@ -1,7 +1,13 @@
 <div class="main">
     <div class="gallery-header">
         <h1 id="galleryTitle">Kolekcje Autorów</h1>
-        <button class="back-btn" id="backBtn" onclick="showFolders()">⬅ Wróć do folderów</button>
+        <div class="header-actions">
+            <div id="bulkActions" class="bulk-actions" style="display: none;">
+                <button class="bulk-btn" onclick="downloadSelectedZip()" id="downloadSelectedBtn">💾 Pobierz zaznaczone (0)</button>
+                <button class="bulk-btn secondary" onclick="downloadAllZip()">📦 Pobierz wszystko (ZIP)</button>
+            </div>
+            <button class="back-btn" id="backBtn" onclick="showFolders()">⬅ Wróć do folderów</button>
+        </div>
     </div>
 
     <div class="progress-bar" id="progressBar">

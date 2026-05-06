@@ -798,7 +798,105 @@ select option {
 
 .author-select-wrapper {
     display: flex;
+    gap: 10px;
+}
+
+/* Bulk Actions & Selection */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.bulk-actions {
+    display: flex;
     gap: 8px;
+    align-items: center;
+    background: rgba(233, 69, 96, 0.1);
+    padding: 4px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(233, 69, 96, 0.2);
+    animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.bulk-btn {
+    background: #e94560;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bulk-btn:hover {
+    background: #c23152;
+    transform: translateY(-1px);
+}
+
+.bulk-btn.secondary {
+    background: #16213e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bulk-btn.secondary:hover {
+    background: #1a1a2e;
+    border-color: #e94560;
+}
+
+/* Selection State on Gallery Items */
+.gallery-item {
+    position: relative;
+    cursor: pointer;
+}
+
+.gallery-item.selected {
+    border-color: #e94560;
+    box-shadow: 0 0 0 2px #e94560;
+}
+
+.selection-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid white;
+    border-radius: 50%;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+    opacity: 0.6;
+    transition: all 0.2s;
+}
+
+.gallery-item:hover .selection-indicator {
+    opacity: 1;
+}
+
+.gallery-item.selected .selection-indicator {
+    background: #e94560;
+    border-color: #e94560;
+    opacity: 1;
+}
+
+.gallery-item.selected .selection-indicator::after {
+    content: '✓';
+    font-weight: 700;
 }
 
 .author-select-wrapper select {

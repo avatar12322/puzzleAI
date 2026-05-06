@@ -53,3 +53,21 @@ def stream_events(session_id):
                 yield f"data: {json.dumps({'type': 'ping'})}\n\n"
 
     return Response(event_stream(), mimetype="text/event-stream")
+
+@generation_bp.route("/api/download-zip", methods=["POST"])
+def api_download_zip():
+    """Generuje URL do paczki ZIP."""
+    data = request.json
+    public_ids = data.get("public_ids", [])
+    author_slug = data.get("author_slug", "collection")
+    
+    if not public_ids:
+        return jsonify({"error": "Nie wybrano żadnych obrazków"}), 400
+    
+    from services.cloudinary_service import get_zip_url
+    zip_url = get_zip_url(public_ids, filename=f"{author_slug}_puzzles")
+    
+    if not zip_url:
+        return jsonify({"error": "Błąd generowania paczki ZIP"}), 500
+        
+    return jsonify({"url": zip_url})

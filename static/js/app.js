@@ -40,8 +40,10 @@ function initGallery() {
 
 function showFolders() {
     currentAuthor = null;
+    selectedItems.clear(); // Czyścimy mapę zaznaczeń
     document.getElementById('galleryTitle').textContent = 'Kolekcje Autorów';
     document.getElementById('backBtn').style.display = 'none';
+    document.getElementById('bulkActions').style.display = 'none';
     
     const gallery = document.getElementById('gallery');
     gallery.innerHTML = '';
@@ -74,10 +76,15 @@ function showFolders() {
 
 function showAuthorGallery(slug) {
     currentAuthor = slug;
+    selectedItems.clear(); // Czyścimy przy wejściu do folderu
+    updateBulkActionsUI();
+    
     const images = allHistory[slug] || [];
     const authorName = slug.replace(/_/g, ' ').toUpperCase();
     document.getElementById('galleryTitle').textContent = `Autor: ${authorName}`;
     document.getElementById('backBtn').style.display = 'flex';
+    document.getElementById('bulkActions').style.display = 'flex';
+    
     const gallery = document.getElementById('gallery');
     gallery.innerHTML = '';
     
@@ -89,55 +96,125 @@ function showAuthorGallery(slug) {
     images.forEach(img => addImageToGallery(img, true));
 }
 
+// --- SELECTION LOGIC ---
+let selectedItems = new Map(); // publicId -> {url, title}
+
+function toggleImageSelection(publicId, url, title, cardElement) {
+    if (selectedItems.has(publicId)) {
+        selectedItems.delete(publicId);
+        cardElement.classList.remove('selected');
+    } else {
+        selectedItems.set(publicId, {url, title});
+        cardElement.classList.add('selected');
+    }
+    updateBulkActionsUI();
+}
+
+function updateBulkActionsUI() {
+    const btn = document.getElementById('downloadSelectedBtn');
+    const count = selectedItems.size;
+    btn.textContent = count === 1 ? `💾 Pobierz zaznaczony` : `💾 Pobierz zaznaczone (${count})`;
+    btn.disabled = count === 0;
+}
+
+async function downloadSelectedZip() {
+    const count = selectedItems.size;
+    if (count === 0) return;
+    
+    if (count === 1) {
+        // POBIERANIE POJEDYNCZEGO PLIKU
+        const [publicId, data] = Array.from(selectedItems.entries())[0];
+        let downloadUrl = data.url;
+        if (downloadUrl.includes('cloudinary.com')) {
+            downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+        }
+        window.location.href = downloadUrl;
+    } else {
+        // POBIERANIE ZIP (WIELU PLIKÓW)
+        await triggerZipDownload(Array.from(selectedItems.keys()));
+    }
+}
+
+async function downloadAllZip() {
+    if (!currentAuthor || !allHistory[currentAuthor]) return;
+    const allIds = [];
+    allHistory[currentAuthor].forEach(img => {
+        const originalId = getPublicIdFromUrl(img.url);
+        if (originalId) allIds.push(originalId);
+        if (img.preview_url) {
+            const pixelId = getPublicIdFromUrl(img.preview_url);
+            if (pixelId) allIds.push(pixelId);
+        }
+    });
+    await triggerZipDownload(allIds);
+}
+
+function getPublicIdFromUrl(url) {
+    const parts = url.split('/upload/');
+    if (parts.length < 2) return null;
+    const path = parts[1].split('/').slice(1).join('/');
+    return path.split('.')[0];
+}
+
+async function triggerZipDownload(publicIds) {
+    const btnSelected = document.getElementById('downloadSelectedBtn');
+    const originalText = btnSelected.textContent;
+    
+    try {
+        btnSelected.textContent = '⏳ Generuję ZIP...';
+        const resp = await fetch('/api/download-zip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ public_ids: publicIds, author_slug: currentAuthor })
+        });
+        const data = await resp.json();
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            alert(data.error || 'Błąd generowania ZIP');
+        }
+    } catch (e) {
+        alert('Błąd: ' + e.message);
+    } finally {
+        btnSelected.textContent = originalText;
+    }
+}
+
 function addImageToGallery(data, append = false) {
     const gallery = document.getElementById('gallery');
     
-    // Upewnij się, że mamy strukturę w allHistory
     if (!allHistory[data.author_slug]) allHistory[data.author_slug] = [];
-    
-    // Unikaj duplikatów w pamięci
     if (!allHistory[data.author_slug].find(i => i.id === data.id)) {
         if (append) allHistory[data.author_slug].push(data);
         else allHistory[data.author_slug].unshift(data);
     }
     
-    // Renderuj tylko jeśli jesteśmy w widoku tego autora
     if (currentAuthor !== data.author_slug && currentAuthor !== null) return;
     if (currentAuthor === null) { 
-        // Jeśli jesteśmy w widoku folderów, tylko odśwież licznik/okładkę jeśli trzeba
-        // (W uproszczeniu po prostu przeładujemy foldery przy nowym obrazku)
         showFolders(); 
         return; 
     }
 
     const createCard = (url, title, model, isPixel) => {
-        // Dodajemy fl_attachment do URL Cloudinary, aby wymusić pobieranie
-        let downloadUrl = url;
-        if (url.includes('cloudinary.com')) {
-            downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
-        }
-        
+        const publicId = getPublicIdFromUrl(url);
         const card = document.createElement('div');
         card.className = 'gallery-item';
+        if (selectedItems.has(publicId)) card.classList.add('selected');
+
         card.innerHTML = `
+            <div class="selection-indicator"></div>
             <div class="image-container">
                 <img src="${url}" alt="${title}" loading="lazy">
-                <div class="image-overlay">
-                    <div class="overlay-actions">
-                         <a href="${url}" target="_blank" class="action-btn" title="Powiększ">🔍</a>
-                    </div>
-                </div>
             </div>
             <div class="info">
                 <div class="info-top">
                     <div class="title">${title} ${isPixel ? '(Pixel Art)' : ''}</div>
                     <div class="model-badge badge-${model}">${model}</div>
                 </div>
-                <div class="info-actions">
-                    <a href="${downloadUrl}" download="${title}.jpg" class="btn-action btn-download">💾 Pobierz obrazek</a>
-                </div>
             </div>
         `;
+        
+        card.onclick = () => toggleImageSelection(publicId, url, title, card);
         return card;
     };
 
