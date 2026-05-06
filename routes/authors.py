@@ -56,6 +56,13 @@ def api_save_author(name):
                 else:
                     os.rename(old_output_dir, new_output_dir)
             
+            # 2. Folder w chmurze Cloudinary
+            from services.cloudinary_service import rename_cloud_folder, delete_cloud_raw_file
+            rename_cloud_folder(old_slug, new_slug)
+            
+            # 3. Usuwamy stary plik JSON z chmury
+            delete_cloud_raw_file(f"authors/{old_slug}.json")
+            
         return jsonify({"success": True, "slug": new_slug, "name": author.name})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -68,6 +75,10 @@ def api_delete_author(name):
         filepath = os.path.join(config.AUTHORS_DIR, f"{slug}.json")
         if os.path.exists(filepath):
             os.remove(filepath)
+            # Usuwanie z chmury
+            from services.cloudinary_service import delete_cloud_raw_file
+            delete_cloud_raw_file(f"authors/{slug}.json")
+            
             return jsonify({"success": True})
         return jsonify({"error": "Autor nie znaleziony"}), 404
     except Exception as e:

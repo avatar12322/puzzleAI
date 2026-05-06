@@ -12,10 +12,10 @@ cloudinary.config(
 )
 
 def upload_image(file_path, folder="puzzle_ai"):
-    """Przesyła obraz do Cloudinary i zwraca stały URL. Używa nazwy pliku jako ID, aby uniknąć duplikatów."""
+    """Przesyła obraz do Cloudinary, zachowując pełną nazwę z rozszerzeniem."""
     try:
-        # Używamy nazwy pliku bez rozszerzenia jako public_id
-        public_id = os.path.splitext(os.path.basename(file_path))[0]
+        # Używamy pełnej nazwy pliku jako public_id
+        public_id = os.path.basename(file_path)
         response = cloudinary.uploader.upload(
             file_path,
             folder=folder,
@@ -71,4 +71,29 @@ def download_raw_file(public_id, save_path):
         return True
     except Exception as e:
         print(f"Błąd Cloudinary Download: {e}")
+        return False
+
+def rename_cloud_folder(old_slug, new_slug):
+    """Zmienia nazwę folderu autora w Cloudinary."""
+    try:
+        import cloudinary.api
+        old_folder = f"puzzle_ai/{old_slug}"
+        new_folder = f"puzzle_ai/{new_slug}"
+        
+        print(f"🔄 Zmiana nazwy folderu w chmurze: {old_folder} -> {new_folder}")
+        cloudinary.api.rename_folder(old_folder, new_folder)
+        return True
+    except Exception as e:
+        print(f"⚠️ Błąd zmiany nazwy folderu w Cloudinary: {e}")
+        return False
+
+def delete_cloud_raw_file(public_id):
+    """Usuwa plik raw (np. JSON autora) z Cloudinary."""
+    try:
+        # public_id powinien zawierać folder, np. "authors/stara_nazwa.json"
+        print(f"🗑️ Usuwanie pliku z chmury: {public_id}")
+        cloudinary.uploader.destroy(public_id, resource_type="raw")
+        return True
+    except Exception as e:
+        print(f"⚠️ Błąd usuwania pliku z Cloudinary: {e}")
         return False
