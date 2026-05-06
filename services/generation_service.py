@@ -18,6 +18,44 @@ from services.cloudinary_service import upload_image
 generation_events = {}
 generation_results = {}
 
+
+def _get_preview_path(pixel_path: str) -> str:
+    """Zwraca ścieżkę do pliku preview na podstawie ścieżki pixel art."""
+    base = os.path.splitext(pixel_path)[0]
+    # pixel_converter zapisuje preview jako _pixel_preview.png
+    # Obsługuje oba warianty nazewnictwa dla kompatybilności wstecznej
+    new_style = base + "_preview.png"
+    if base.endswith("_pixel"):
+        new_style = base + "_preview.png"
+    return new_style
+
+
+def _upload_pixel_art(path: str, pixel_size: int, author_slug: str, label: str = "") -> str | None:
+    """
+    Konwertuje obraz do pixel art i uploaduje preview do Cloudinary.
+    Zwraca URL preview lub None jeśli coś poszło nie tak.
+    """
+    print(f"DEBUG{label}: Start konwersji Pixel Art dla {path} (size={pixel_size})")
+    pixel_path = convert_to_pixel_art(path, size=pixel_size, colors=16)
+
+    # Zbuduj ścieżkę preview deterministycznie na podstawie tego co zwrócił konwerter
+    base = os.path.splitext(pixel_path)[0]
+    preview_path = base + "_preview.png"
+
+    if os.path.exists(preview_path):
+        print(f"DEBUG{label}: Wysyłam preview: {preview_path}")
+        url = upload_image(preview_path, folder=f"puzzle_ai/{author_slug}")
+        print(f"DEBUG{label}: Preview URL: {url}")
+        return url
+    else:
+        print(f"DEBUG{label}: ⚠️ Nie znaleziono preview: {preview_path}")
+        # Fallback — wyślij mały pixel art zamiast preview
+        if os.path.exists(pixel_path) and pixel_path != path:
+            print(f"DEBUG{label}: Fallback — wysyłam pixel_path: {pixel_path}")
+            return upload_image(pixel_path, folder=f"puzzle_ai/{author_slug}")
+    return None
+
+
 def start_background_generation(author_name, count, use_gemini, use_flux, pixel_size):
     """Tworzy sesję i uruchamia wątek generowania."""
     session_id = str(uuid.uuid4())[:8]
@@ -31,6 +69,7 @@ def start_background_generation(author_name, count, use_gemini, use_flux, pixel_
     )
     thread.start()
     return session_id
+
 
 def start_manual_pixelation(author_name, file_storage, pixel_size):
     """Tworzy sesję dla ręcznie przesłanego obrazka i uruchamia przetwarzanie."""
@@ -46,35 +85,31 @@ def start_manual_pixelation(author_name, file_storage, pixel_size):
     thread.start()
     return session_id
 
+
 def _run_manual_pixelation_thread(session_id, author_name, file_storage, pixel_size):
     """Wątek dla ręcznego uploadu — zapisuje plik i opcjonalnie pixeluje."""
     q = generation_events[session_id]
     results = generation_results[session_id]
-    
+
     try:
         author = load_author(author_name)
         q.put({"type": "status", "message": "Zapisywanie i wysyłka oryginału..."})
-        
+
         output_dir = author.output_dir(config.OUTPUT_DIR)
         os.makedirs(output_dir, exist_ok=True)
-        
+
         timestamp = int(time.time())
         filename = f"manual_{timestamp}_{file_storage.filename}"
         path = os.path.join(output_dir, filename)
         file_storage.save(path)
-        
+
         # Wysyłka oryginału do Cloudinary
         remote_url = upload_image(path, folder=f"puzzle_ai/{author.slug}")
-        
+
         pixel_url = None
         if author.post_processing == "pixel_art_50x50":
-            q.put({"type": "status", "message": f"Konwertuję i wysyłam pixel art..."})
-            pixel_path = convert_to_pixel_art(path, size=pixel_size, colors=16)
-            
-            # Wysyłamy powiększony preview zamiast małego pliku 50x50
-            preview_path = pixel_path.replace('.png', '_preview.png')
-            if os.path.exists(preview_path):
-                pixel_url = upload_image(preview_path, folder=f"puzzle_ai/{author.slug}")
+            q.put({"type": "status", "message": f"Konwertuję do pixel art (size={pixel_size})..."})
+            pixel_url = _upload_pixel_art(path, pixel_size, author.slug, label=" (MANUAL)")
 
         result = {
             "id": filename,
@@ -83,17 +118,18 @@ def _run_manual_pixelation_thread(session_id, author_name, file_storage, pixel_s
             "url": remote_url or f"/output/{author.slug}/{filename}",
             "preview_url": pixel_url,
             "author_slug": author.slug,
-            "index": 0
+            "index": 0,
         }
         results.append(result)
         q.put({"type": "image_ready", **result})
         q.put({"type": "done", "total_images": 1})
-        
+
     except Exception as e:
         import traceback
         traceback.print_exc()
         q.put({"type": "error", "message": str(e)})
         q.put({"type": "done", "total_images": 0})
+
 
 def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux, pixel_size):
     """Wątek generowania — wysyła eventy przez kolejkę."""
@@ -103,93 +139,81 @@ def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux,
     try:
         author = load_author(author_name)
         q.put({"type": "status", "message": f"Ładuję autora: {author.name}..."})
-        
+
         ideas = generate_puzzle_ideas(author, count)
-        q.put({"type": "scenes_ready", "count": len(ideas),
-               "scenes": [{"title": idea.title, "scene": idea.scene[:200]} for idea in ideas]})
+        q.put({
+            "type": "scenes_ready",
+            "count": len(ideas),
+            "scenes": [{"title": idea.title, "scene": idea.scene[:200]} for idea in ideas],
+        })
 
         output_dir = author.output_dir(config.OUTPUT_DIR)
         total = len(ideas) * (int(use_gemini) + int(use_flux))
         current = 0
+        is_compare = use_gemini and use_flux
 
         for i, idea in enumerate(ideas):
             full_prompt = idea.full_prompt(author.style_template)
-            
+
             if author.post_processing == "pixel_art_50x50":
                 full_prompt += "\nVisual hint: looks like a children coloring book icon, vector icon style"
 
-            # Gemini
+            # === GEMINI ===
             if use_gemini:
                 current += 1
-                q.put({"type": "generating", "current": current, "total": total, "title": idea.title, "model": "Gemini"})
-                
-                if use_gemini and use_flux:
-                    gemini_dir = os.path.join(output_dir, "gemini")
-                    os.makedirs(gemini_dir, exist_ok=True)
-                    filename = f"{i+1:03d}_{idea.filename}.jpg"
-                    path = os.path.join(gemini_dir, filename)
-                else:
-                    os.makedirs(output_dir, exist_ok=True)
-                    filename = f"{i+1:03d}_{idea.filename}.jpg"
-                    path = os.path.join(output_dir, filename)
+                q.put({"type": "generating", "current": current, "total": total,
+                       "title": idea.title, "model": "Gemini"})
+
+                sub_dir = os.path.join(output_dir, "gemini") if is_compare else output_dir
+                os.makedirs(sub_dir, exist_ok=True)
+                filename = f"{i+1:03d}_{idea.filename}.jpg"
+                path = os.path.join(sub_dir, filename)
 
                 if generate_image(full_prompt, path):
-                    q.put({"type": "status", "message": "Wysyłam do chmury..."})
+                    q.put({"type": "status", "message": "Wysyłam oryginał do chmury..."})
                     remote_url = upload_image(path, folder=f"puzzle_ai/{author.slug}")
-                    print(f"DEBUG: Oryginał wysłany: {remote_url}")
-                    
+                    print(f"DEBUG (Gemini): Oryginał: {remote_url}")
+
                     pixel_url = None
                     if author.post_processing == "pixel_art_50x50":
-                        print(f"DEBUG: Start konwersji Pixel Art dla {path} (size={pixel_size})")
-                        pixel_path = convert_to_pixel_art(path, size=pixel_size, colors=16)
-                        
-                        # Znajdujemy ścieżkę do preview stworzoną przez konwerter
-                        preview_path = pixel_path.replace('.png', '_preview.png')
-                        if os.path.exists(preview_path):
-                            print(f"DEBUG: Wysyłam preview do chmury: {preview_path}")
-                            pixel_url = upload_image(preview_path, folder=f"puzzle_ai/{author.slug}")
-                            print(f"DEBUG: Preview wysłany: {pixel_url}")
-                        else:
-                            print(f"DEBUG: Nie znaleziono pliku preview: {preview_path}")
+                        q.put({"type": "status", "message": f"Konwertuję do pixel art..."})
+                        pixel_url = _upload_pixel_art(path, pixel_size, author.slug, label=" (Gemini)")
 
                     result = {
-                        "id": filename, "title": idea.title, "model": "Gemini", 
-                        "url": remote_url or f"/output/{author.slug}/{filename}", 
-                        "preview_url": pixel_url, 
-                        "author_slug": author.slug, "index": i
+                        "id": filename, "title": idea.title, "model": "Gemini",
+                        "url": remote_url or f"/output/{author.slug}/{filename}",
+                        "preview_url": pixel_url,
+                        "author_slug": author.slug, "index": i,
                     }
                     results.append(result)
                     q.put({"type": "image_ready", **result})
 
-            # FLUX
+            # === FLUX ===
             if use_flux:
                 current += 1
-                q.put({"type": "generating", "current": current, "total": total, "title": idea.title, "model": "FLUX"})
-                
-                os.makedirs(output_dir, exist_ok=True)
+                q.put({"type": "generating", "current": current, "total": total,
+                       "title": idea.title, "model": "FLUX"})
+
+                sub_dir = os.path.join(output_dir, "flux") if is_compare else output_dir
+                os.makedirs(sub_dir, exist_ok=True)
                 filename = f"{i+1:03d}_{idea.filename}_flux.jpg"
-                path = os.path.join(output_dir, filename)
+                path = os.path.join(sub_dir, filename)
 
                 if generate_image_free(full_prompt, path):
-                    q.put({"type": "status", "message": "Wysyłam do chmury..."})
+                    q.put({"type": "status", "message": "Wysyłam oryginał do chmury..."})
                     remote_url = upload_image(path, folder=f"puzzle_ai/{author.slug}")
-                    print(f"DEBUG (FLUX): Oryginał wysłany: {remote_url}")
-                    
+                    print(f"DEBUG (FLUX): Oryginał: {remote_url}")
+
                     pixel_url = None
                     if author.post_processing == "pixel_art_50x50":
-                        print(f"DEBUG (FLUX): Start konwersji Pixel Art dla {path}")
-                        pixel_path = convert_to_pixel_art(path, size=pixel_size, colors=16)
-                        
-                        preview_path = pixel_path.replace('.png', '_preview.png')
-                        if os.path.exists(preview_path):
-                            pixel_url = upload_image(preview_path, folder=f"puzzle_ai/{author.slug}")
-                            print(f"DEBUG (FLUX): Preview wysłany: {pixel_url}")
+                        q.put({"type": "status", "message": f"Konwertuję do pixel art..."})
+                        pixel_url = _upload_pixel_art(path, pixel_size, author.slug, label=" (FLUX)")
 
                     result = {
-                        "id": filename, "title": idea.title, "model": "FLUX", 
-                        "url": remote_url or f"/output/{author.slug}/{filename}", 
+                        "id": filename, "title": idea.title, "model": "FLUX",
+                        "url": remote_url or f"/output/{author.slug}/{filename}",
                         "preview_url": pixel_url,
-                        "author_slug": author.slug, "index": i
+                        "author_slug": author.slug, "index": i,
                     }
                     results.append(result)
                     q.put({"type": "image_ready", **result})
