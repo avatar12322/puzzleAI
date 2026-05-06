@@ -47,29 +47,26 @@ def _generate_with_imagen(full_prompt: str, output_path: str) -> bool:
 
 
 def _generate_with_gemini(full_prompt: str, output_path: str) -> bool:
-    """Generuje obraz przez Gemini Flash Image API (generate_content)."""
+    """Generuje obraz przez Gemini Image API (generate_content)."""
     response = client.models.generate_content(
         model=config.IMAGE_MODEL,
         contents=full_prompt,
         config=types.GenerateContentConfig(
-            response_modalities=["IMAGE"],
+            response_modalities=["IMAGE"],  # Tylko IMAGE — TEXT obniża rozdzielczość
             image_config=types.ImageConfig(
                 aspect_ratio=config.IMAGE_ASPECT_RATIO,
             ),
         ),
     )
 
-    # Sprawdź czy odpowiedź nie została zablokowana przez safety filters
     if not response.candidates:
-        print("    ⚠️  Brak kandydatów w odpowiedzi (możliwe blokowanie przez safety filters)")
+        print("    ⚠️  Brak kandydatów (możliwe blokowanie przez safety filters)")
         return False
 
     candidate = response.candidates[0]
-
-    # Sprawdź finish_reason — SAFETY oznacza zablokowanie przez filtry
     finish_reason = getattr(candidate, "finish_reason", None)
     if finish_reason and str(finish_reason) not in ("STOP", "FinishReason.STOP", "1"):
-        print(f"    ⚠️  Odpowiedź zakończona z powodu: {finish_reason}")
+        print(f"    ⚠️  Finish reason: {finish_reason}")
 
     if not candidate.content or not candidate.content.parts:
         return False
