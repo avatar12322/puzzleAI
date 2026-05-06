@@ -13,7 +13,7 @@ if not GEMINI_API_KEY:
 
 # === Modele Gemini ===
 TEXT_MODEL = "gemini-2.5-flash"                              # Do generowania promptów/scen
-IMAGE_MODEL = "gemini-2.5-flash-preview-image-generation"   # Gemini Flash Image (Nano Banana)
+IMAGE_MODEL = "gemini-3-pro-image-preview"   # Gemini Flash Image (Nano Banana)
 
 # === Ustawienia obrazów ===
 IMAGE_ASPECT_RATIO = "1:1"  # Format obrazu (obsługiwany przez Gemini i Imagen)

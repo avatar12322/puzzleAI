@@ -52,7 +52,7 @@ def _generate_with_gemini(full_prompt: str, output_path: str) -> bool:
         model=config.IMAGE_MODEL,
         contents=full_prompt,
         config=types.GenerateContentConfig(
-            response_modalities=["TEXT", "IMAGE"],  # TEXT wymagany przez niektóre wersje modelu
+            response_modalities=["IMAGE"],
             image_config=types.ImageConfig(
                 aspect_ratio=config.IMAGE_ASPECT_RATIO,
             ),
