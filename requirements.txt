@@ -1,15 +1,15 @@
-# Niezbędne do poprawnej instalacji na Linuxie
+# Niezbędne do poprawnej instalacji
 wheel
 
 # Główne biblioteki
 Flask==3.0.3
 requests==2.31.0
-google-generativeai==0.5.2
+google-genai  # Ta biblioteka obsługuje 'from google import genai'
 python-dotenv==1.0.1
 cloudinary==1.40.0
 gunicorn==22.0.0
 
-# Biblioteki graficzne (uproszczone wersje dla lepszej kompatybilności)
+# Biblioteki graficzne
 Pillow
 scikit-image
 scikit-learn
