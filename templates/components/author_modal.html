@@ -1,0 +1,57 @@
+<div class="modal-overlay" id="authorModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="modalTitle">Edycja Autora</h2>
+            <button class="modal-close" onclick="closeAuthorEditor()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <input type="hidden" id="editOriginalName">
+                <label>Nazwa Autora</label>
+                <input type="text" id="editName" placeholder="Np. Kazimierz Grodecki">
+                <div class="field-help">Imię i nazwisko lub nazwa profilu. Na jej podstawie powstanie folder na dysku.</div>
+            </div>
+            <div class="form-group">
+                <label>Krótka Tematyka (Theme)</label>
+                <input type="text" id="editTheme" placeholder="Np. Mroczne zamki, vintage lotnictwo">
+                <div class="field-help">Krótki opis tego, co autor tworzy. Wyświetla się pod listą wyboru w sidebarze.</div>
+            </div>
+            <div class="form-group">
+                <label>Szablon Stylu (Stała część promptu)</label>
+                <textarea id="editStyleTemplate" placeholder="Np. 1:1 square ratio, hyperrealism..."></textarea>
+                <div class="field-help">Tu wpisz stałe cechy obrazu: styl (np. olejny), oświetlenie, tło, detale techniczne.</div>
+            </div>
+            <div class="form-group">
+                <label>Instrukcje dla Sceny (Dynamiczna część)</label>
+                <textarea id="editSceneInstructions" placeholder="Np. Wygeneruj scenę która zawiera..."></textarea>
+                <div class="field-help">
+                    Tu wpisujesz "przepis" na tematy obrazków.<br>
+                    <b>Przykład:</b> "Stwórz kobietę w różnych sytuacjach (balkon, łódź, samolot). Każda scena musi być unikalna".<br>
+                    <span style="color:#e94560">💡 <b>PRO TIP:</b> Przy dużej ilości puzzli dopisz: "Dbaj o dużą różnorodność kolorów, pór dnia i miejsc".</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Negative Prompts (po przecinku)</label>
+                <input type="text" id="editNegativePrompts" placeholder="Np. text, watermark, bad anatomy">
+                <div class="field-help">Czego AI ma unikać? Np. napisów, znaków wodnych, 3D.</div>
+            </div>
+            <div class="form-group">
+                <label>Tagi (po przecinku)</label>
+                <input type="text" id="editTags" placeholder="Np. dark, architecture, horror">
+                <div class="field-help">Słowa kluczowe używane wewnętrznie do kategoryzacji.</div>
+            </div>
+            <div class="form-group">
+                <label>Post Processing (Algorytmy)</label>
+                <select id="editPostProcessing" style="width: 100%;">
+                    <option value="">Brak (Zwykły obrazek)</option>
+                    <option value="pixel_art_50x50">Konwerter Pixel Art (do kolorowanek)</option>
+                </select>
+                <div class="field-help">Wybierz "Pixel Art", jeśli chcesz by obrazek był automatycznie zamieniany na klocki (50-120px).</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn btn-cancel" onclick="closeAuthorEditor()">Anuluj</button>
+            <button class="modal-btn btn-save" onclick="saveAuthor()">💾 Zapisz zmiany</button>
+        </div>
+    </div>
+</div>

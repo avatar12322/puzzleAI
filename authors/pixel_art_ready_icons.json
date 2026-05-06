@@ -1,0 +1,26 @@
+{
+  "name": "Pixel Art Ready (Readable Color Icons)",
+  "theme": "Simple colorful vector icons optimized for small pixel art conversion (50-120px)",
+  "style_template": "1:1 square, pure white #FFFFFF background, centered subject, flat 2D vector, thick clean outline (dark but not pure black), solid color fills, high contrast colors, NO gradients, NO shading, NO textures, NO lighting, clean edges, simple smooth shapes",
+  "scene_instructions": "Create ONE simple, highly readable subject designed to survive downscaling.\n\nSubject — Choose a cute animal, food, or object (bear, cat, unicorn, cupcake, potion, heart, kite).\n\nColors — Use 3-5 solid, contrasting colors to clearly separate parts of the object.\n\nShapes — Use big, rounded, simple shapes. Avoid tiny elements.\n\nDetails — Only include essential features (eyes, ears, basic pattern). No small decorations.\n\nOutline — Use thick outline but not too heavy. Internal lines minimal.\n\nComposition — Subject must be big, centered, and fill most of the canvas.\n\nIMPORTANT — The object must remain clearly recognizable at 50x50 pixels. Prefer bold shapes over details.",
+  "negative_prompts": [
+    "photorealistic",
+    "shading",
+    "gradients",
+    "textures",
+    "complex details",
+    "thin lines",
+    "noise",
+    "messy",
+    "sketch",
+    "background scene",
+    "multiple objects"
+  ],
+  "tags": [
+    "pixel_art",
+    "color_icons",
+    "readable",
+    "bold_shapes"
+  ],
+  "post_processing": "pixel_art_50x50"
+}

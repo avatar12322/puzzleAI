@@ -1,0 +1,23 @@
+{
+  "name": "Kazimierz Grodeski",
+  "theme": "Dark and majestic European castles, fortresses, and medieval architecture",
+  "style_template": "1:1 square ratio, vivid colors, hyperrealism, ultra-detailed illustration, full image, highly realistic painterly cinematic style (not cartoonish), dramatic golden hour or twilight lighting, colorful and balanced composition, This is a majestic and atmospheric scene featuring medieval architecture filled with rich architectural details, dramatic skies, and immersive historical atmosphere, designed like a premium jigsaw puzzle illustration with many clear, readable elements, presented as a continuous image (no grid, no puzzle segmentation, no text).",
+  "scene_instructions": "Create scenes featuring impressive European castles, fortresses, citadels, and medieval towns. Include rich environmental details like moats, drawbridges, towers, flags, stone walls with moss, cobblestone paths, distant mountains or forests. Add life to the scenes with market stalls, horses, birds perching on battlements, guards, wandering cats, and atmospheric weather effects. Each scene should feel like stepping into a medieval fairy tale. Vary between mountain castles, coastal fortresses, lake-side palaces, and hilltop citadels.",
+  "negative_prompts": [
+    "modern buildings",
+    "cars",
+    "technology",
+    "cartoonish style",
+    "text",
+    "grid lines"
+  ],
+  "tags": [
+    "castles",
+    "medieval",
+    "fortresses",
+    "architecture",
+    "europe",
+    "historical"
+  ],
+  "post_processing": null
+}

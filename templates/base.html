@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧩 Puzzle AI Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+    <script id="history-data" type="application/json">{{ history | default({}) | tojson | safe }}</script>
+    <script id="folders-data" type="application/json">{{ folders | default({}) | tojson | safe }}</script>
+    <div class="header">
+        <h1>🧩 Puzzle AI Agent</h1>
+        <span class="subtitle">Automatyczny generator puzzli</span>
+    </div>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    {% block modals %}{% endblock %}
+
+    <!-- Skrypty -->
+    <!-- Skrypty zostają przeniesione do app.js, który sam pobierze dane z body -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

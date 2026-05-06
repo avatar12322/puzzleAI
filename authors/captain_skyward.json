@@ -1,0 +1,28 @@
+{
+  "name": "Captain Skyward",
+  "theme": "Vintage and classic aviation — retro airfields, legendary aircraft, and the golden age of flight",
+  "style_template": "1:1 square ratio, vivid colors, hyperrealism, ultra-detailed illustration, full image, highly realistic painterly cinematic style (not cartoonish), warm golden afternoon sunlight with dramatic volumetric clouds and sun rays piercing through, rich saturated color palette with warm ambers, sky blues, and chrome silvers, colorful and balanced composition, This is a nostalgic and charming vintage aviation scene filled with meticulously detailed classic aircraft, a bustling retro airfield atmosphere, and playful details of ground crew life, designed like a premium jigsaw puzzle illustration with many clear, readable elements, presented as a continuous image (no grid, no puzzle segmentation, no text).",
+  "scene_instructions": "Create detailed aviation scenes following this exact structure with clear sections:\n\n**The Main Scene** — Always center the scene around a specific airfield, hangar area, or scenic flight moment. Include one or two beautifully detailed vintage or classic aircraft as the biplanes, WWII-era fighters, golden-age propeller airliners, barnstormers, or seaplanes. The aircraft should have gleaming paintwork, polished chrome, visible rivets, and period-accurate markings.\n\n**Humorous Focus** — Include 2-3 charming or subtly funny details: a dog wearing aviator goggles sitting in an open cockpit, a cat napping on a warm engine cowling, a mechanic with a grease smudge shaped like a mustache, a bird trying to land on a spinning propeller (safely perched nearby), a mouse peeking out of a toolbox, wind blowing someone's hat off.\n\n**Airfield Elements** — Richly detailed ground elements: vintage fuel trucks, stacked wooden crates, oil drums, wind socks fluttering, chalkboard flight schedules, leather flight jackets hung on hooks, old radio equipment, tool carts with wrenches and rags, spare tires, propeller blades leaning against walls.\n\n**Ground Activity** — Busy airfield life: mechanics working under wings, a pilot studying a map on the wing, spectators behind a rope barrier, kids pointing excitedly at planes, a vintage car or motorcycle parked near the hangar, someone having a picnic on a blanket near the runway.\n\n**Environment** — Hangar details: large wooden or corrugated metal hangars with sliding doors, concrete or grass runways, taxiways with faded painted lines, wildflowers growing at runway edges, a classic control tower in the background.\n\n**Background** — Dramatic skies with towering cumulus clouds, golden light, possibly another aircraft visible in the distance in flight. Rolling countryside, mountains, or coastline visible beyond the airfield.\n\n**Lighting** — Warm golden sunlight creating dramatic reflections on polished aircraft surfaces, long afternoon shadows across the tarmac, chrome and glass catching brilliant highlights, atmospheric haze in the distance.\n\nThe overall atmosphere is warmly nostalgic, adventurous, and full of golden-age aviation romance, with many small discoverable details and a sense of joyful activity, resembling a high-quality classic jigsaw puzzle illustration.",
+  "negative_prompts": [
+    "modern jets",
+    "military combat",
+    "explosions",
+    "destruction",
+    "war scenes",
+    "cartoonish style",
+    "text",
+    "grid lines",
+    "futuristic",
+    "space"
+  ],
+  "tags": [
+    "aviation",
+    "vintage",
+    "aircraft",
+    "airfield",
+    "retro",
+    "planes",
+    "golden age"
+  ],
+  "post_processing": null
+}

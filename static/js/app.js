@@ -1,0 +1,373 @@
+// --- DATA INITIALIZATION ---
+let allHistory = {};
+let folderMetadata = {};
+
+function loadDataFromDOM() {
+    try {
+        allHistory = JSON.parse(document.getElementById('history-data').textContent || '{}');
+        folderMetadata = JSON.parse(document.getElementById('folders-data').textContent || '{}');
+        console.log("Galleria: Wczytano folderów:", Object.keys(folderMetadata).length);
+        console.log("Galleria: Wczytano historię dla autorów:", Object.keys(allHistory).length);
+    } catch (e) {
+        console.error("Błąd podczas ładowania danych z DOM:", e);
+    }
+}
+
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    if (tabId === 'generator') document.getElementById('tabGenBtn').classList.add('active');
+    else document.getElementById('tabAuthorBtn').classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    if (tabId === 'generator') document.getElementById('tabGenerator').classList.add('active');
+    else document.getElementById('tabAuthors').classList.add('active');
+}
+
+// --- GALLERY NAVIGATION LOGIC ---
+let currentAuthor = null;
+
+function initGallery() {
+    loadDataFromDOM();
+    
+    // Sprawdź czy mamy wrócić do konkretnego autora po odświeżeniu
+    const lastAuthor = sessionStorage.getItem('lastAuthorView');
+    if (lastAuthor && folderMetadata[lastAuthor]) {
+        showAuthorGallery(lastAuthor);
+        sessionStorage.removeItem('lastAuthorView'); // Czyścimy po użyciu
+    } else {
+        showFolders();
+    }
+}
+
+function showFolders() {
+    currentAuthor = null;
+    document.getElementById('galleryTitle').textContent = 'Kolekcje Autorów';
+    document.getElementById('backBtn').style.display = 'none';
+    
+    const gallery = document.getElementById('gallery');
+    gallery.innerHTML = '';
+    
+    const slugs = Object.keys(folderMetadata);
+    
+    if (slugs.length === 0) {
+        gallery.innerHTML = `<div class="empty-state"><div class="icon">📁</div><div class="text">Brak wygenerowanych obrazków.<br>Wybierz autora i kliknij "Generuj puzzle"!</div></div>`;
+        return;
+    }
+
+    slugs.forEach(slug => {
+        const meta = folderMetadata[slug];
+        const card = document.createElement('div');
+        card.className = 'folder-card';
+        card.onclick = () => showAuthorGallery(slug);
+        
+        const coverImg = meta.cover ? `<img src="${meta.cover}" class="folder-cover">` : `<div class="folder-icon" style="position:absolute; top:40%; left:50%; transform:translate(-50%,-50%); opacity:0.2;">📂</div>`;
+        
+        card.innerHTML = `
+            ${coverImg}
+            <div class="folder-info-overlay">
+                <div class="folder-name">${meta.name}</div>
+                <div class="folder-count">${meta.count} obrazków</div>
+            </div>
+        `;
+        gallery.appendChild(card);
+    });
+}
+
+function showAuthorGallery(slug) {
+    currentAuthor = slug;
+    const images = allHistory[slug] || [];
+    const authorName = slug.replace(/_/g, ' ').toUpperCase();
+    document.getElementById('galleryTitle').textContent = `Autor: ${authorName}`;
+    document.getElementById('backBtn').style.display = 'flex';
+    const gallery = document.getElementById('gallery');
+    gallery.innerHTML = '';
+    
+    if (images.length === 0) {
+        gallery.innerHTML = `<div class="empty-state"><div class="icon">🖼️</div><div class="text">Ten folder jest jeszcze pusty.</div></div>`;
+        return;
+    }
+    
+    images.forEach(img => addImageToGallery(img, true));
+}
+
+function addImageToGallery(data, append = false) {
+    const gallery = document.getElementById('gallery');
+    
+    // Upewnij się, że mamy strukturę w allHistory
+    if (!allHistory[data.author_slug]) allHistory[data.author_slug] = [];
+    
+    // Unikaj duplikatów w pamięci
+    if (!allHistory[data.author_slug].find(i => i.id === data.id)) {
+        if (append) allHistory[data.author_slug].push(data);
+        else allHistory[data.author_slug].unshift(data);
+    }
+    
+    // Renderuj tylko jeśli jesteśmy w widoku tego autora
+    if (currentAuthor !== data.author_slug && currentAuthor !== null) return;
+    if (currentAuthor === null) { 
+        // Jeśli jesteśmy w widoku folderów, tylko odśwież licznik/okładkę jeśli trzeba
+        // (W uproszczeniu po prostu przeładujemy foldery przy nowym obrazku)
+        showFolders(); 
+        return; 
+    }
+
+    const createCard = (url, title, model, isPixel) => {
+        const card = document.createElement('div');
+        card.className = 'gallery-item';
+        card.innerHTML = `
+            <div class="image-container">
+                <img src="${url}" alt="${title}" loading="lazy">
+                <div class="image-overlay">
+                    <div class="overlay-actions">
+                         <a href="${url}" target="_blank" class="action-btn" title="Powiększ">🔍</a>
+                    </div>
+                </div>
+            </div>
+            <div class="info">
+                <div class="info-top">
+                    <div class="title">${title} ${isPixel ? '(Pixel Art)' : ''}</div>
+                    <div class="model-badge badge-${model}">${model}</div>
+                </div>
+                <div class="info-actions">
+                    <a href="${url}" download="${title}.jpg" class="btn-action btn-download">💾 Pobierz obrazek</a>
+                </div>
+            </div>
+        `;
+        return card;
+    };
+
+    const cardOrig = createCard(data.url, data.title, data.model, false);
+    if (append) gallery.appendChild(cardOrig); else gallery.prepend(cardOrig);
+    
+    if (data.preview_url) {
+        const cardPixel = createCard(data.preview_url, data.title, data.model, true);
+        if (append) gallery.appendChild(cardPixel); else gallery.prepend(cardPixel);
+    }
+}
+window.addEventListener('load', initGallery);
+
+function updateUploadStatus() {
+    const input = document.getElementById('manualUpload');
+    const status = document.getElementById('uploadStatus');
+    const clearBtn = document.getElementById('clearUploadBtn');
+    const genBtn = document.getElementById('generateBtn');
+
+    if (input.files && input.files[0]) {
+        status.textContent = `Wybrano: ${input.files[0].name}`;
+        status.style.color = '#27ae60';
+        clearBtn.style.display = 'block';
+        genBtn.textContent = '🎨 Konwertuj własny obraz';
+    } else {
+        status.textContent = 'Nie wybrano pliku (użyje AI)';
+        status.style.color = '#888';
+        clearBtn.style.display = 'none';
+        genBtn.textContent = '🎨 Generuj puzzle';
+    }
+}
+
+function clearUpload() {
+    document.getElementById('manualUpload').value = '';
+    updateUploadStatus();
+}
+
+async function startGeneration() {
+    const author = document.getElementById('authorSelect').value;
+    const countInput = document.getElementById('countInput');
+    const count = parseInt(countInput.value);
+    const useGemini = document.getElementById('modelGemini').checked;
+    const useFlux = document.getElementById('modelFlux').checked;
+    const pixelSize = parseInt(document.getElementById('pixelSizeSelect').value);
+    const manualFile = document.getElementById('manualUpload').files[0];
+
+    if (!author) { alert('Wybierz autora!'); return; }
+    
+    const btn = document.getElementById('generateBtn');
+    const originalBtnText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Przetwarzam...';
+    document.getElementById('progressBar').classList.add('active');
+    document.getElementById('statusText').textContent = 'Inicjalizacja...';
+
+    try {
+        let resp;
+        if (manualFile) {
+            // Tryb ręczny - wysyłamy plik
+            const formData = new FormData();
+            formData.append('author', author);
+            formData.append('file', manualFile);
+            formData.append('pixel_size', pixelSize);
+            
+            resp = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+        } else {
+            // Tryb AI
+            if (!useGemini && !useFlux) { alert('Wybierz przynajmniej jeden model!'); resetUI(); return; }
+            resp = await fetch('/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ author, count, gemini: useGemini, flux: useFlux, pixel_size: pixelSize }),
+            });
+        }
+
+        const data = await resp.json();
+        if (data.error) { alert(data.error); resetUI(); return; }
+        
+        const eventSource = new EventSource(`/events/${data.session_id}`);
+        eventSource.onmessage = (event) => {
+            const evt = JSON.parse(event.data);
+            switch (evt.type) {
+                case 'status': document.getElementById('statusText').textContent = evt.message; break;
+                case 'generating':
+                    document.getElementById('progressLabel').textContent = `${evt.title} (${evt.model})`;
+                    document.getElementById('progressCount').textContent = `${evt.current}/${evt.total}`;
+                    document.getElementById('progressFill').style.width = `${(evt.current / evt.total) * 100}%`;
+                    break;
+                case 'image_ready': addImageToGallery(evt); break;
+                case 'done': 
+                    resetUI(); 
+                    eventSource.close();
+                    if (currentAuthor) sessionStorage.setItem('lastAuthorView', currentAuthor);
+                    setTimeout(() => window.location.reload(), 1000);
+                    break;
+                case 'error': alert(evt.message); resetUI(); eventSource.close(); break;
+            }
+        };
+    } catch (e) { 
+        alert('Błąd: ' + e.message); 
+        resetUI(); 
+    }
+}
+
+function resetUI() {
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = false;
+    btn.textContent = '🎨 Generuj puzzle';
+    document.getElementById('progressBar').classList.remove('active');
+}
+
+function updateAuthorManageInfo() {
+    const select = document.getElementById('authorManageSelect');
+    const info = document.getElementById('authorManageInfo');
+    const actions = document.getElementById('authorActions');
+    const option = select.options[select.selectedIndex];
+    if (option.value) {
+        info.style.display = 'block';
+        info.textContent = option.dataset.theme;
+        actions.style.display = 'grid';
+    } else {
+        info.style.display = 'none';
+        actions.style.display = 'none';
+    }
+}
+
+function createNewAuthor() {
+    document.getElementById('editOriginalName').value = '';
+    document.getElementById('editName').value = '';
+    document.getElementById('editTheme').value = '';
+    document.getElementById('editStyleTemplate').value = '';
+    document.getElementById('editSceneInstructions').value = '';
+    document.getElementById('editNegativePrompts').value = '';
+    document.getElementById('editTags').value = '';
+    document.getElementById('editPostProcessing').value = '';
+    document.getElementById('modalTitle').textContent = 'Nowy Autor';
+    document.getElementById('authorModal').classList.add('active');
+}
+
+async function deleteAuthor() {
+    const authorName = document.getElementById('authorManageSelect').value;
+    if (!authorName) return;
+    if (!confirm(`Czy na pewno chcesz usunąć autora "${authorName}"?`)) return;
+    try {
+        const resp = await fetch(`/api/author/${encodeURIComponent(authorName)}`, { method: 'DELETE' });
+        if (!resp.ok) throw new Error('Błąd podczas usuwania');
+        alert('Autor usunięty!');
+        window.location.reload();
+    } catch (e) { alert(e.message); }
+}
+
+function updateAuthorInfo() {
+    const select = document.getElementById('authorSelect');
+    const info = document.getElementById('authorInfo');
+    const option = select.options[select.selectedIndex];
+    if (option.value) {
+        info.style.display = 'block';
+        info.textContent = option.dataset.theme;
+        const isPixelArt = (option.dataset.postprocessing === 'pixel_art_50x50');
+        document.getElementById('pixelSizeGroup').style.display = isPixelArt ? 'flex' : 'none';
+        document.getElementById('uploadGroup').style.display = isPixelArt ? 'flex' : 'none';
+    } else {
+        info.style.display = 'none';
+        document.getElementById('pixelSizeGroup').style.display = 'none';
+        document.getElementById('uploadGroup').style.display = 'none';
+    }
+}
+
+function toggleModel(el) {
+    const checkbox = el.querySelector('input[type="checkbox"]');
+    checkbox.checked = !checkbox.checked;
+    el.classList.toggle('selected', checkbox.checked);
+}
+
+function autoExpandTextarea(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; }
+document.querySelectorAll('textarea').forEach(textarea => textarea.addEventListener('input', function() { autoExpandTextarea(this); }));
+
+async function openAuthorEditor(mode = 'generator') {
+    const selectId = mode === 'generator' ? 'authorSelect' : 'authorManageSelect';
+    const authorName = document.getElementById(selectId).value;
+    if (!authorName) { alert('Wybierz autora!'); return; }
+    try {
+        const resp = await fetch(`/api/author/${encodeURIComponent(authorName)}`);
+        const data = await resp.json();
+        document.getElementById('editOriginalName').value = data.name || authorName;
+        document.getElementById('editName').value = data.name || '';
+        document.getElementById('editTheme').value = data.theme || '';
+        document.getElementById('editStyleTemplate').value = data.style_template || '';
+        document.getElementById('editSceneInstructions').value = data.scene_instructions || '';
+        document.getElementById('editNegativePrompts').value = (data.negative_prompts || []).join(', ');
+        document.getElementById('editTags').value = (data.tags || []).join(', ');
+        document.getElementById('editPostProcessing').value = data.post_processing || '';
+        document.getElementById('modalTitle').textContent = 'Edycja Autora';
+        document.getElementById('authorModal').classList.add('active');
+        setTimeout(() => document.querySelectorAll('#authorModal textarea').forEach(autoExpandTextarea), 50);
+    } catch (e) { alert(e.message); }
+}
+
+function closeAuthorEditor() { document.getElementById('authorModal').classList.remove('active'); }
+
+async function saveAuthor() {
+    const originalName = document.getElementById('editOriginalName').value;
+    const name = document.getElementById('editName').value.trim();
+    if (!name) { alert('Nazwa autora jest wymagana!'); return; }
+    const payload = {
+        name: name,
+        theme: document.getElementById('editTheme').value,
+        style_template: document.getElementById('editStyleTemplate').value,
+        scene_instructions: document.getElementById('editSceneInstructions').value,
+        negative_prompts: document.getElementById('editNegativePrompts').value.split(',').map(s => s.trim()).filter(s => s),
+        tags: document.getElementById('editTags').value.split(',').map(s => s.trim()).filter(s => s),
+        post_processing: document.getElementById('editPostProcessing').value || null
+    };
+    const btn = document.querySelector('.btn-save');
+    const originalText = btn.textContent;
+    btn.textContent = 'Zapisywanie...';
+    btn.disabled = true;
+
+    try {
+        const targetName = originalName || name;
+        const resp = await fetch(`/api/author/${encodeURIComponent(targetName)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await resp.json();
+        if (result.error) throw new Error(result.error);
+        closeAuthorEditor();
+        window.location.reload();
+    } catch (e) {
+        alert('Błąd podczas zapisywania: ' + e.message);
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}

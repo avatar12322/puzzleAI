@@ -1,0 +1,103 @@
+<div class="sidebar">
+    <div class="sidebar-tabs">
+        <button class="tab-btn active" id="tabGenBtn" onclick="switchTab('generator')">🎨 Generator</button>
+        <button class="tab-btn" id="tabAuthorBtn" onclick="switchTab('authors')">👥 Autorzy</button>
+    </div>
+
+    <!-- Tab: Generator -->
+    <div id="tabGenerator" class="tab-content active">
+        <div class="form-group">
+            <label>Wybierz Autora</label>
+            <select id="authorSelect" onchange="updateAuthorInfo()">
+                <option value="">— Wybierz autora —</option>
+                {% for author in authors %}
+                <option value="{{ author.name }}" data-theme="{{ author.theme }}"
+                    data-postprocessing="{{ author.post_processing }}">
+                    {{ author.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="author-info" id="authorInfo" style="display: none;"></div>
+
+        <div class="form-group">
+            <label>Ilość Puzzli</label>
+            <input type="number" id="countInput" value="2" min="1" max="20">
+        </div>
+
+        <div class="form-group" id="pixelSizeGroup" style="display: none;">
+            <label>Rozmiar Pikseli (Pixel Art)</label>
+            <select id="pixelSizeSelect">
+                <option value="50">50x50 (mało szczegółów)</option>
+                <option value="80" selected>80x80 (szczegółowe)</option>
+                <option value="120">120x120 (bardzo szczegółowe)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Modele</label>
+            <div class="model-options">
+                <div class="model-option selected" onclick="toggleModel(this)">
+                    <input type="checkbox" id="modelGemini" checked>
+                    <div class="model-check"></div>
+                    <div class="model-label">
+                        <span class="name">💎 Gemini</span>
+                        <span class="desc">~$0.015/obraz - najlepsza jakość</span>
+                    </div>
+                </div>
+
+                <div class="model-option" onclick="toggleModel(this)">
+                    <input type="checkbox" id="modelFlux">
+                    <div class="model-check"></div>
+                    <div class="model-label">
+                        <span class="name">🆓 FLUX</span>
+                        <span class="desc">darmowy - do testu</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group" id="uploadGroup" style="display: none;">
+            <label>Opcjonalnie: Własny obraz (pominie AI)</label>
+            <div class="file-upload-wrapper">
+                <input type="file" id="manualUpload" accept="image/*" style="display: none;" onchange="updateUploadStatus()">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('manualUpload').click()">
+                    📁 Wybierz plik
+                </button>
+                <button type="button" class="btn-clear" onclick="clearUpload()" id="clearUploadBtn" style="display: none;">❌</button>
+                <div id="uploadStatus" class="field-help">Nie wybrano pliku (użyje AI)</div>
+            </div>
+        </div>
+
+        <button class="generate-btn" id="generateBtn" onclick="startGeneration()">🎨 Generuj puzzle</button>
+    </div>
+
+    <!-- Tab: Autorzy -->
+    <div id="tabAuthors" class="tab-content">
+        <button class="btn-new" onclick="createNewAuthor()">➕ Dodaj Nowego Autora</button>
+        
+        <div class="form-group">
+            <label>Zarządzaj Autorem</label>
+            <select id="authorManageSelect" onchange="updateAuthorManageInfo()">
+                <option value="">— Wybierz do edycji —</option>
+                {% for author in authors %}
+                <option value="{{ author.name }}" data-theme="{{ author.theme }}">
+                    {{ author.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="author-info" id="authorManageInfo" style="display: none;"></div>
+
+        <div class="author-actions" id="authorActions" style="display: none;">
+            <button class="generate-btn" style="padding:10px; font-size:12px;" onclick="openAuthorEditor('manage')">⚙️ Edytuj</button>
+            <button class="btn-delete" onclick="deleteAuthor()">🗑️ Usuń</button>
+        </div>
+        
+        <div style="margin-top:20px; font-size:12px; color:#555;">
+            <p><b>PRO TIP:</b> Autorzy to profile stylów. Każdy ma swoje instrukcje, które decydują o tym, jak wyglądają puzzle.</p>
+        </div>
+    </div>
+</div>
