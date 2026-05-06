@@ -1,4 +1,22 @@
-.env
-output/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env
+
+# Dane aplikacji (nie chcemy ich na serwerze Git, bo są za duże/prywatne)
+output/
+authors/*.json
+!authors/pixel_art_ready_icons.json
+!authors/historical_figures.json
+
+# IDE
+.vscode/
+.idea/
+
+# System
+.DS_Store
+Thumbs.db
