@@ -37,9 +37,9 @@ def get_history():
                 url = res.get("secure_url")
                 
                 # Szukamy odpowiadającego mu preview
-                # Teraz, gdy public_id nie mają rozszerzeń, szukamy po prostu base_name + _preview
+                # Nowa konwencja: base_name + _pixel_preview
                 base_name = os.path.splitext(filename)[0]
-                preview_id = f"puzzle_ai/{author_slug}/{base_name}_preview"
+                preview_id = f"puzzle_ai/{author_slug}/{base_name}_pixel_preview"
                 preview_url = all_urls.get(preview_id)
 
                 history.append({
@@ -74,7 +74,7 @@ def get_history():
                 preview_url = None
                 
                 # Szukamy lokalnego preview
-                preview_filename = f"{base_name}_preview.png"
+                preview_filename = f"{base_name}_pixel_preview.png"
                 if os.path.exists(os.path.join(author_path, preview_filename)):
                     preview_url = f"/output/{author_slug}/{preview_filename}"
                 

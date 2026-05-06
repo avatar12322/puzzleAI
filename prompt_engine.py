@@ -48,9 +48,7 @@ Do NOT wrap the JSON in markdown code blocks. Output raw JSON only."""
 def generate_puzzle_ideas(author: Author, count: int) -> list[PuzzleIdea]:
     """
     Generuje unikalne pomysły na sceny puzzli dla danego autora.
-    
-    Używa modelu tekstowego Gemini do wymyślenia szczegółowych opisów scen.
-    Styl NIE jest generowany — pochodzi z szablonu autora.
+    Używa modelu tekstowego Gemini z mechanizmem retry i czyszczeniem markdown.
     """
     negative_section = ""
     if author.negative_prompts:
@@ -64,49 +62,56 @@ def generate_puzzle_ideas(author: Author, count: int) -> list[PuzzleIdea]:
         count=count,
     )
 
-    print(f"  🧠 Generuję {count} pomysłów na sceny dla '{author.name}'...")
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            print(f"  🧠 Generuję {count} pomysłów na sceny (próba {attempt+1}/{max_retries+1})...")
 
-    response = client.models.generate_content(
-        model=config.TEXT_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=1.0,        # Wysoka kreatywność
-            max_output_tokens=8192,
-            thinking_config=types.ThinkingConfig(thinking_budget=0),  # Wyłącz thinking — nie potrzebne dla JSON
-        ),
-    )
+            response = client.models.generate_content(
+                model=config.TEXT_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=1.0,
+                    max_output_tokens=8192,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
+            )
 
-    # Zabezpieczenie: sprawdź czy odpowiedź nie jest pusta
-    if not response.candidates or not response.text:
-        raise ValueError("Gemini zwrócił pustą odpowiedź — spróbuj ponownie")
+            if not response.candidates or not response.text:
+                raise ValueError("Gemini zwrócił pustą odpowiedź")
 
-    raw_text = response.text.strip()
-    
-    # Wyczyść ewentualne markdown code blocks (re.DOTALL dla wieloliniowych)
-    raw_text = re.sub(r'^```(?:json)?\s*\n?', '', raw_text, flags=re.MULTILINE)
-    raw_text = re.sub(r'\n?```\s*$', '', raw_text, flags=re.MULTILINE)
-    raw_text = raw_text.strip()
-    
-    try:
-        ideas_data = json.loads(raw_text)
-    except json.JSONDecodeError as e:
-        print(f"  ❌ Błąd parsowania JSON z odpowiedzi AI: {e}")
-        print(f"  Surowa odpowiedź (pierwsze 500 znaków):\n{raw_text[:500]}")
-        raise
+            raw_text = response.text.strip()
+            
+            # 1. Wyciąganie JSON-a (tablicy)
+            json_match = re.search(r'\[\s*\{.*\}\s*\]', raw_text, re.DOTALL)
+            if json_match:
+                raw_text = json_match.group(0)
+            else:
+                raw_text = re.sub(r'^```(?:json)?\s*\n?', '', raw_text, flags=re.MULTILINE)
+                raw_text = re.sub(r'\n?```\s*$', '', raw_text, flags=re.MULTILINE)
+            
+            # 2. CZYSZCZENIE: usuwamy podwójne gwiazdki markdown z wnętrza opisu
+            raw_text = raw_text.replace("**", "")
+            
+            ideas_data = json.loads(raw_text)
+            
+            ideas = []
+            for i, item in enumerate(ideas_data):
+                if "title" not in item or "scene" not in item:
+                    continue
+                ideas.append(PuzzleIdea(title=item["title"], scene=item["scene"]))
 
-    ideas = []
-    for i, item in enumerate(ideas_data):
-        if "title" not in item or "scene" not in item:
-            print(f"  ⚠️  Pomijam element #{i+1} — brak pola 'title' lub 'scene': {item}")
-            continue
-        idea = PuzzleIdea(
-            title=item["title"],
-            scene=item["scene"],
-        )
-        ideas.append(idea)
+            if not ideas:
+                raise ValueError("Brak poprawnych scen w JSON")
 
-    if not ideas:
-        raise ValueError("Żaden wygenerowany pomysł nie ma wymaganych pól 'title' i 'scene'")
+            print(f"  ✅ Wygenerowano {len(ideas)} pomysłów")
+            return ideas
 
-    print(f"  ✅ Wygenerowano {len(ideas)} pomysłów na sceny")
-    return ideas
+        except (json.JSONDecodeError, ValueError) as e:
+            if attempt < max_retries:
+                print(f"  ⚠️ Błąd generowania pomysłów ({e}), ponawiam próbę...")
+                import time
+                time.sleep(1)
+            else:
+                print(f"  ❌ Nie udało się wygenerować pomysłów po {max_retries+1} próbach.")
+                raise
