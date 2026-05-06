@@ -1,10 +1,13 @@
 # Niezbędne do poprawnej instalacji
 wheel
 
+# Lokalna biblioteka Pyxelate
+./pyxelate-2.0.2
+
 # Główne biblioteki
 Flask==3.0.3
 requests==2.31.0
-google-genai  # Ta biblioteka obsługuje 'from google import genai'
+google-genai
 python-dotenv==1.0.1
 cloudinary==1.40.0
 gunicorn==22.0.0
