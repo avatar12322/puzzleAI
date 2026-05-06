@@ -17,7 +17,7 @@ IMAGE_MODEL = "gemini-3-pro-image-preview"   # Gemini Pro Image (najlepsza jako�
 # IMAGE_MODEL = "gemini-2.5-flash-image"     # Alternatywa: szybszy, tańszy, stabilny GA
 
 # === Ustawienia obrazów ===
-# Uwaga: image_size ("1K"/"2K") działa TYLKO z Imagen, nie z Gemini Flash Image
+IMAGE_SIZE = "2K"           # Docelowa jakość: "1K", "2K" (2048x2048)
 IMAGE_ASPECT_RATIO = "1:1"  # Format obrazu: "1:1", "4:3", "16:9", "9:16"
 
 # === Ścieżki ===

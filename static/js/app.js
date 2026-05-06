@@ -111,6 +111,12 @@ function addImageToGallery(data, append = false) {
     }
 
     const createCard = (url, title, model, isPixel) => {
+        // Dodajemy fl_attachment do URL Cloudinary, aby wymusić pobieranie
+        let downloadUrl = url;
+        if (url.includes('cloudinary.com')) {
+            downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
+        }
+        
         const card = document.createElement('div');
         card.className = 'gallery-item';
         card.innerHTML = `
@@ -128,7 +134,7 @@ function addImageToGallery(data, append = false) {
                     <div class="model-badge badge-${model}">${model}</div>
                 </div>
                 <div class="info-actions">
-                    <a href="${url}" download="${title}.jpg" class="btn-action btn-download">💾 Pobierz obrazek</a>
+                    <a href="${downloadUrl}" download="${title}.jpg" class="btn-action btn-download">💾 Pobierz obrazek</a>
                 </div>
             </div>
         `;
