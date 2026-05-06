@@ -2,7 +2,7 @@ import os
 import config
 
 def get_history():
-    """Zwraca historię obrazów, dbając o to, by oryginały były główne, a _preview były dodatkami."""
+    """Zwraca historię obrazów, filtrując zbędne pliki PNG i parując oryginały JPG z miniaturami."""
     history = []
     
     # 1. Pobieranie z Cloudinary
@@ -14,25 +14,29 @@ def get_history():
             max_results=500
         ).get("resources", [])
         
-        # Mapa dla szybkiego szukania: klucz to nazwa pliku bez rozszerzenia
+        # Mapa wszystkich plików (public_id -> secure_url)
         all_urls = {res['public_id']: res['secure_url'] for res in resources}
         
         for res in resources:
             public_id = res.get("public_id")
-            full_filename = os.path.basename(public_id) # np. "test.jpg" lub "test_preview.png"
+            full_filename = os.path.basename(public_id)
             
-            # Ignorujemy pliki preview jako główne wpisy
+            # FILTRY:
+            # 1. Ignorujemy miniatury jako główne wpisy
             if "_preview" in full_filename:
                 continue
             
+            # 2. Ignorujemy pliki PNG jako główne wpisy (użytkownik chce tylko JPG jako główne)
+            if full_filename.lower().endswith('.png'):
+                continue
+
             parts = public_id.split('/')
             if len(parts) >= 3:
                 author_slug = parts[1]
-                filename = parts[2] # Nazwa pliku z rozszerzeniem
+                filename = parts[2]
                 url = res.get("secure_url")
                 
-                # Szukamy odpowiadającego mu preview
-                # Próbujemy dopasować nazwę bazową + _preview.png
+                # Szukamy odpowiadającego mu preview (zawsze .png)
                 base_name = os.path.splitext(filename)[0]
                 preview_id = f"puzzle_ai/{author_slug}/{base_name}_preview.png"
                 preview_url = all_urls.get(preview_id)
@@ -62,7 +66,8 @@ def get_history():
         if not os.path.isdir(author_path): continue
         
         for filename in os.listdir(author_path):
-            if filename.lower().endswith(('.png', '.jpg', '.jpeg')) and "_preview" not in filename:
+            # Pokazujemy tylko JPG jako główne
+            if filename.lower().endswith('.jpg') and "_preview" not in filename:
                 path = os.path.join(author_path, filename)
                 base_name = os.path.splitext(filename)[0]
                 preview_url = None
