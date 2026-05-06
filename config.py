@@ -13,7 +13,7 @@ if not GEMINI_API_KEY:
 
 # === Modele Gemini ===
 TEXT_MODEL = "gemini-2.5-flash"          # Do generowania promptów/scen
-IMAGE_MODEL = "gemini-2.5-flash-image"   # Gemini Flash Image
+IMAGE_MODEL = "gemini-2.5-flash-preview-image-generation" 
 
 # === Ścieżki ===
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
