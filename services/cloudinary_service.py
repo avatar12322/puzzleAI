@@ -74,21 +74,37 @@ def download_raw_file(public_id, save_path):
         return False
 
 def rename_cloud_folder(old_slug, new_slug):
-    """Zmienia nazwę folderu autora w Cloudinary (Admin API)."""
+    """Zmienia nazwę folderu autora w Cloudinary poprzez przeniesienie każdego pliku."""
     try:
         import cloudinary.api
-        old_folder = f"puzzle_ai/{old_slug}"
-        new_folder = f"puzzle_ai/{new_slug}"
+        old_prefix = f"puzzle_ai/{old_slug}/"
+        new_prefix = f"puzzle_ai/{new_slug}/"
         
-        print(f"📡 Próba zmiany nazwy folderu w chmurze: {old_folder} -> {new_folder}")
+        # 1. Pobierz listę wszystkich zasobów w starym folderze
+        resources = cloudinary.api.resources(
+            type="upload",
+            prefix=old_prefix,
+            max_results=500
+        ).get("resources", [])
         
-        # Cloudinary API wymaga dokładnych ścieżek
-        result = cloudinary.api.rename_folder(old_folder, new_folder)
-        print(f"✅ Cloudinary: Folder zmieniony pomyślnie. Szczegóły: {result}")
+        if not resources:
+            print(f"ℹ️ Brak obrazków do przeniesienia w {old_prefix}")
+            return True
+            
+        print(f"🔄 Przenoszenie {len(resources)} obrazków: {old_prefix} -> {new_prefix}")
+        
+        # 2. Zmień public_id dla każdego pliku (to przenosi go do nowego folderu)
+        for res in resources:
+            old_public_id = res['public_id']
+            # Zamieniamy stary prefix na nowy
+            new_public_id = old_public_id.replace(old_prefix, new_prefix, 1)
+            
+            print(f"  📦 Przenoszę: {old_public_id} -> {new_public_id}")
+            cloudinary.uploader.rename(old_public_id, new_public_id, overwrite=True)
+            
         return True
     except Exception as e:
-        print(f"⚠️ Błąd zmiany nazwy folderu w Cloudinary: {e}")
-        # Jeśli folder nie istnieje, to technicznie nie jest to błąd blokujący aplikację
+        print(f"⚠️ Błąd podczas ręcznego przenoszenia folderu: {e}")
         return False
 
 def delete_cloud_raw_file(public_id):
