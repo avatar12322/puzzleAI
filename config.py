@@ -16,8 +16,8 @@ TEXT_MODEL = "gemini-2.5-flash"                              # Do generowania pr
 IMAGE_MODEL = "gemini-2.5-flash-preview-image-generation"   # Gemini Flash Image (Nano Banana)
 
 # === Ustawienia obrazów ===
-IMAGE_SIZE = "1K"        # Rozdzielczość: "1K", "2K", "4K" (wyższa = wolniej i drożej)
-IMAGE_ASPECT_RATIO = "1:1"  # Format obrazu
+IMAGE_ASPECT_RATIO = "1:1"  # Format obrazu (obsługiwany przez Gemini i Imagen)
+# Uwaga: Parametry takie jak IMAGE_SIZE ("1K", "2K") działają TYLKO z modelem Imagen.
 
 # === Ścieżki ===
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

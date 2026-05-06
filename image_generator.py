@@ -55,7 +55,6 @@ def _generate_with_gemini(full_prompt: str, output_path: str) -> bool:
             response_modalities=["TEXT", "IMAGE"],  # TEXT wymagany przez niektóre wersje modelu
             image_config=types.ImageConfig(
                 aspect_ratio=config.IMAGE_ASPECT_RATIO,
-                image_size=config.IMAGE_SIZE,
             ),
         ),
     )
