@@ -36,9 +36,10 @@ def get_history():
                 filename = parts[2]
                 url = res.get("secure_url")
                 
-                # Szukamy odpowiadającego mu preview (zawsze .png)
+                # Szukamy odpowiadającego mu preview
+                # Teraz, gdy public_id nie mają rozszerzeń, szukamy po prostu base_name + _preview
                 base_name = os.path.splitext(filename)[0]
-                preview_id = f"puzzle_ai/{author_slug}/{base_name}_preview.png"
+                preview_id = f"puzzle_ai/{author_slug}/{base_name}_preview"
                 preview_url = all_urls.get(preview_id)
 
                 history.append({

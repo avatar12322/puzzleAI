@@ -12,10 +12,12 @@ cloudinary.config(
 )
 
 def upload_image(file_path, folder="puzzle_ai"):
-    """Przesyła obraz do Cloudinary, zachowując pełną nazwę z rozszerzeniem."""
+    """Przesyła obraz do Cloudinary. Usuwa rozszerzenie z public_id, aby uniknąć .jpg.jpg."""
     try:
-        # Używamy pełnej nazwy pliku jako public_id
-        public_id = os.path.basename(file_path)
+        # Pobieramy nazwę pliku i usuwamy rozszerzenie dla Cloudinary public_id
+        base_filename = os.path.basename(file_path)
+        public_id = os.path.splitext(base_filename)[0]
+        
         response = cloudinary.uploader.upload(
             file_path,
             folder=folder,

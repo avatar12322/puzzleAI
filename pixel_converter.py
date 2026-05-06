@@ -18,10 +18,13 @@ def convert_to_pixel_art(input_path: str, size: int = 50, colors: int = 12) -> s
         # Uczenie palety i transformacja w jednym kroku
         new_image = pyx.fit_transform(image)
         
-        # Ścieżka wyjściowa
-        pixel_path = input_path.replace('.jpg', '.png')
+        # Ścieżka wyjściowa (zawsze PNG dla pixel artu)
+        base_path = os.path.splitext(input_path)[0]
+        pixel_path = base_path + ".png"
+        
+        # Jeśli wejściowy też był PNG, dodajemy dopisek, żeby nie nadpisać oryginału
         if pixel_path == input_path:
-            pixel_path = input_path.replace('.png', '_pixel.png')
+            pixel_path = base_path + "_pixel.png"
             
         # Zapis używając io.imsave
         io.imsave(pixel_path, new_image)
