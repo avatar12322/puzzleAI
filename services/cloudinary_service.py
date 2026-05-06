@@ -1,3 +1,4 @@
+import os
 import cloudinary
 import cloudinary.uploader
 import config
@@ -11,12 +12,16 @@ cloudinary.config(
 )
 
 def upload_image(file_path, folder="puzzle_ai"):
-    """Przesyła obraz do Cloudinary i zwraca stały URL."""
+    """Przesyła obraz do Cloudinary i zwraca stały URL. Używa nazwy pliku jako ID, aby uniknąć duplikatów."""
     try:
+        # Używamy nazwy pliku bez rozszerzenia jako public_id
+        public_id = os.path.splitext(os.path.basename(file_path))[0]
         response = cloudinary.uploader.upload(
             file_path,
             folder=folder,
-            resource_type="image"
+            public_id=public_id,
+            resource_type="image",
+            overwrite=True
         )
         return response.get("secure_url")
     except Exception as e:
