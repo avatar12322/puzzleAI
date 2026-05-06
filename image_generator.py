@@ -52,18 +52,30 @@ def _generate_with_gemini(full_prompt: str, output_path: str) -> bool:
         model=config.IMAGE_MODEL,
         contents=full_prompt,
         config=types.GenerateContentConfig(
-            response_modalities=["TEXT", "IMAGE"],
+            response_modalities=["TEXT", "IMAGE"],  # TEXT wymagany przez niektóre wersje modelu
             image_config=types.ImageConfig(
-                aspect_ratio="1:1",
-                image_size="1K",
+                aspect_ratio=config.IMAGE_ASPECT_RATIO,
+                image_size=config.IMAGE_SIZE,
             ),
         ),
     )
 
-    if not response.candidates or not response.candidates[0].content.parts:
+    # Sprawdź czy odpowiedź nie została zablokowana przez safety filters
+    if not response.candidates:
+        print("    ⚠️  Brak kandydatów w odpowiedzi (możliwe blokowanie przez safety filters)")
         return False
 
-    for part in response.candidates[0].content.parts:
+    candidate = response.candidates[0]
+
+    # Sprawdź finish_reason — SAFETY oznacza zablokowanie przez filtry
+    finish_reason = getattr(candidate, "finish_reason", None)
+    if finish_reason and str(finish_reason) not in ("STOP", "FinishReason.STOP", "1"):
+        print(f"    ⚠️  Odpowiedź zakończona z powodu: {finish_reason}")
+
+    if not candidate.content or not candidate.content.parts:
+        return False
+
+    for part in candidate.content.parts:
         if part.inline_data and part.inline_data.mime_type.startswith("image/"):
             image_data = part.inline_data.data
             image = Image.open(BytesIO(image_data))
@@ -89,7 +101,9 @@ def generate_image(full_prompt: str, output_path: str, retries: int = 3) -> bool
     Returns:
         True jeśli sukces, False jeśli niepowodzenie
     """
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     
     use_imagen = _is_imagen_model(config.IMAGE_MODEL)
 

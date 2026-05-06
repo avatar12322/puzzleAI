@@ -70,16 +70,22 @@ def generate_puzzle_ideas(author: Author, count: int) -> list[PuzzleIdea]:
         model=config.TEXT_MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(
-            temperature=1.0,       # Wysoka kreatywność
+            temperature=1.0,        # Wysoka kreatywność
             max_output_tokens=8192,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),  # Wyłącz thinking — nie potrzebne dla JSON
         ),
     )
 
+    # Zabezpieczenie: sprawdź czy odpowiedź nie jest pusta
+    if not response.candidates or not response.text:
+        raise ValueError("Gemini zwrócił pustą odpowiedź — spróbuj ponownie")
+
     raw_text = response.text.strip()
     
-    # Wyczyść ewentualne markdown code blocks
-    raw_text = re.sub(r'^```(?:json)?\s*', '', raw_text)
-    raw_text = re.sub(r'\s*```$', '', raw_text)
+    # Wyczyść ewentualne markdown code blocks (re.DOTALL dla wieloliniowych)
+    raw_text = re.sub(r'^```(?:json)?\s*\n?', '', raw_text, flags=re.MULTILINE)
+    raw_text = re.sub(r'\n?```\s*$', '', raw_text, flags=re.MULTILINE)
+    raw_text = raw_text.strip()
     
     try:
         ideas_data = json.loads(raw_text)
@@ -89,12 +95,18 @@ def generate_puzzle_ideas(author: Author, count: int) -> list[PuzzleIdea]:
         raise
 
     ideas = []
-    for item in ideas_data:
+    for i, item in enumerate(ideas_data):
+        if "title" not in item or "scene" not in item:
+            print(f"  ⚠️  Pomijam element #{i+1} — brak pola 'title' lub 'scene': {item}")
+            continue
         idea = PuzzleIdea(
             title=item["title"],
             scene=item["scene"],
         )
         ideas.append(idea)
+
+    if not ideas:
+        raise ValueError("Żaden wygenerowany pomysł nie ma wymaganych pól 'title' i 'scene'")
 
     print(f"  ✅ Wygenerowano {len(ideas)} pomysłów na sceny")
     return ideas

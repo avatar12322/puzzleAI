@@ -12,8 +12,12 @@ if not GEMINI_API_KEY:
     raise RuntimeError("Brak klucza GEMINI_API_KEY! Ustaw go w pliku .env")
 
 # === Modele Gemini ===
-TEXT_MODEL = "gemini-2.5-flash"          # Do generowania promptów/scen
-IMAGE_MODEL = "gemini-2.5-flash-preview-image-generation" 
+TEXT_MODEL = "gemini-2.5-flash"                              # Do generowania promptów/scen
+IMAGE_MODEL = "gemini-2.5-flash-preview-image-generation"   # Gemini Flash Image (Nano Banana)
+
+# === Ustawienia obrazów ===
+IMAGE_SIZE = "1K"        # Rozdzielczość: "1K", "2K", "4K" (wyższa = wolniej i drożej)
+IMAGE_ASPECT_RATIO = "1:1"  # Format obrazu
 
 # === Ścieżki ===
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

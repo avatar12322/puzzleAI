@@ -60,9 +60,7 @@ class PuzzleIdea:
 
 def load_author(name: str) -> Author:
     """Ładuje profil autora z pliku JSON w authors/."""
-    # Szukaj po nazwie pliku
-    slug = re.sub(r'[^\w\s-]', '', name.lower().strip())
-    slug = re.sub(r'[\s]+', '_', slug)
+    slug = get_slug(name)
     filepath = os.path.join(AUTHORS_DIR, f"{slug}.json")
 
     if not os.path.exists(filepath):
@@ -87,7 +85,10 @@ def load_author(name: str) -> Author:
     with open(filepath, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    return Author(**data)
+    try:
+        return Author(**data)
+    except TypeError as e:
+        raise ValueError(f"Błąd w pliku autora '{filepath}': {e}")
 
 
 def list_authors() -> list[str]:
