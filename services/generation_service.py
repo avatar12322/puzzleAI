@@ -70,7 +70,11 @@ def _run_manual_pixelation_thread(session_id, author_name, file_storage, pixel_s
         if author.post_processing == "pixel_art_50x50":
             q.put({"type": "status", "message": f"Konwertuję i wysyłam pixel art..."})
             pixel_path = convert_to_pixel_art(path, size=pixel_size, colors=16)
-            pixel_url = upload_image(pixel_path, folder=f"puzzle_ai/{author.slug}")
+            
+            # Wysyłamy powiększony preview zamiast małego pliku 50x50
+            preview_path = pixel_path.replace('.png', '_preview.png')
+            if os.path.exists(preview_path):
+                pixel_url = upload_image(preview_path, folder=f"puzzle_ai/{author.slug}")
 
         result = {
             "id": filename,
@@ -132,11 +136,21 @@ def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux,
                 if generate_image(full_prompt, path):
                     q.put({"type": "status", "message": "Wysyłam do chmury..."})
                     remote_url = upload_image(path, folder=f"puzzle_ai/{author.slug}")
+                    print(f"DEBUG: Oryginał wysłany: {remote_url}")
                     
                     pixel_url = None
                     if author.post_processing == "pixel_art_50x50":
+                        print(f"DEBUG: Start konwersji Pixel Art dla {path} (size={pixel_size})")
                         pixel_path = convert_to_pixel_art(path, size=pixel_size, colors=16)
-                        pixel_url = upload_image(pixel_path, folder=f"puzzle_ai/{author.slug}")
+                        
+                        # Znajdujemy ścieżkę do preview stworzoną przez konwerter
+                        preview_path = pixel_path.replace('.png', '_preview.png')
+                        if os.path.exists(preview_path):
+                            print(f"DEBUG: Wysyłam preview do chmury: {preview_path}")
+                            pixel_url = upload_image(preview_path, folder=f"puzzle_ai/{author.slug}")
+                            print(f"DEBUG: Preview wysłany: {pixel_url}")
+                        else:
+                            print(f"DEBUG: Nie znaleziono pliku preview: {preview_path}")
 
                     result = {
                         "id": filename, "title": idea.title, "model": "Gemini", 
@@ -159,12 +173,18 @@ def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux,
                 if generate_image_free(full_prompt, path):
                     q.put({"type": "status", "message": "Wysyłam do chmury..."})
                     remote_url = upload_image(path, folder=f"puzzle_ai/{author.slug}")
+                    print(f"DEBUG (FLUX): Oryginał wysłany: {remote_url}")
                     
                     pixel_url = None
                     if author.post_processing == "pixel_art_50x50":
+                        print(f"DEBUG (FLUX): Start konwersji Pixel Art dla {path}")
                         pixel_path = convert_to_pixel_art(path, size=pixel_size, colors=16)
-                        pixel_url = upload_image(pixel_path, folder=f"puzzle_ai/{author.slug}")
-                            
+                        
+                        preview_path = pixel_path.replace('.png', '_preview.png')
+                        if os.path.exists(preview_path):
+                            pixel_url = upload_image(preview_path, folder=f"puzzle_ai/{author.slug}")
+                            print(f"DEBUG (FLUX): Preview wysłany: {pixel_url}")
+
                     result = {
                         "id": filename, "title": idea.title, "model": "FLUX", 
                         "url": remote_url or f"/output/{author.slug}/{filename}", 
