@@ -8,9 +8,11 @@ def pixelate_smart(input_path, output_path, size=50, num_colors=12):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     
     # 2. Kwantyzacja w wysokiej rozdzielczości K-Means
+    np.random.seed(42) # Powtarzalność wyników
     pixels = img.reshape((-1, 3)).astype(np.float32)
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
-    _, labels, centers = cv2.kmeans(pixels, num_colors, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    # KMEANS_PP_CENTERS jest bardziej stabilny niż RANDOM
+    _, labels, centers = cv2.kmeans(pixels, num_colors, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
     
     centers = np.uint8(centers)
     quantized_high_res = centers[labels.flatten()].reshape(img.shape)

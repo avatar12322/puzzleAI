@@ -10,10 +10,11 @@ def pixelate_clean(input_path, output_path, size=50, num_colors=8):
     # Krok 1: Wstępne rozmycie żeby pozbyć się detali z AI i mieć płaskie plamy
     blurred = cv2.bilateralFilter(img, d=15, sigmaColor=75, sigmaSpace=75)
     
-    # Krok 2: K-Means na 8 kolorów
-    pixels = blurred.reshape((-1, 3)).astype(np.float32)
+    # 2. Kwantyzacja K-Means
+    np.random.seed(42)
+    pixels = img.reshape((-1, 3)).astype(np.float32)
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
-    _, labels, centers = cv2.kmeans(pixels, num_colors, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    _, labels, centers = cv2.kmeans(pixels, num_colors, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
     
     centers = np.uint8(centers)
     

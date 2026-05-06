@@ -23,10 +23,11 @@ def pixelate_detailed(input_path, output_path, size=64, num_colors=12):
     # Krok 2: Lekkie rozmycie kolorów (żeby zbić podobne odcienie, ale zachować krawędzie)
     blurred = cv2.bilateralFilter(img_edges, d=9, sigmaColor=50, sigmaSpace=50)
     
-    # Krok 3: K-Means
-    pixels = blurred.reshape((-1, 3)).astype(np.float32)
+    # 2. Kwantyzacja K-Means
+    np.random.seed(42)
+    pixels = img.reshape((-1, 3)).astype(np.float32)
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
-    _, labels, centers = cv2.kmeans(pixels, num_colors, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    _, labels, centers = cv2.kmeans(pixels, num_colors, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
     
     centers = np.uint8(centers)
     quantized_high = centers[labels.flatten()].reshape(blurred.shape)
