@@ -74,17 +74,21 @@ def download_raw_file(public_id, save_path):
         return False
 
 def rename_cloud_folder(old_slug, new_slug):
-    """Zmienia nazwę folderu autora w Cloudinary."""
+    """Zmienia nazwę folderu autora w Cloudinary (Admin API)."""
     try:
         import cloudinary.api
         old_folder = f"puzzle_ai/{old_slug}"
         new_folder = f"puzzle_ai/{new_slug}"
         
-        print(f"🔄 Zmiana nazwy folderu w chmurze: {old_folder} -> {new_folder}")
-        cloudinary.api.rename_folder(old_folder, new_folder)
+        print(f"📡 Próba zmiany nazwy folderu w chmurze: {old_folder} -> {new_folder}")
+        
+        # Cloudinary API wymaga dokładnych ścieżek
+        result = cloudinary.api.rename_folder(old_folder, new_folder)
+        print(f"✅ Cloudinary: Folder zmieniony pomyślnie. Szczegóły: {result}")
         return True
     except Exception as e:
         print(f"⚠️ Błąd zmiany nazwy folderu w Cloudinary: {e}")
+        # Jeśli folder nie istnieje, to technicznie nie jest to błąd blokujący aplikację
         return False
 
 def delete_cloud_raw_file(public_id):
