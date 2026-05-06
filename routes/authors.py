@@ -33,6 +33,10 @@ def api_save_author(name):
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
+        # Synchronizacja z chmurą
+        from services.author_sync_service import sync_author_to_cloud
+        sync_author_to_cloud(new_slug)
+
         # Obsługa zmiany nazwy (przenoszenie plików)
         old_slug = get_slug(name)
         if old_slug and old_slug != new_slug:

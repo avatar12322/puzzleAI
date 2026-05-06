@@ -18,6 +18,13 @@ def create_app():
     """Inicjalizacja i konfiguracja aplikacji."""
     app = Flask(__name__)
     
+    # Synchronizacja autorów z chmury przy starcie
+    try:
+        from services.author_sync_service import sync_authors_from_cloud
+        sync_authors_from_cloud()
+    except Exception as e:
+        print(f"⚠️ Błąd synchronizacji startowej: {e}")
+
     # Rejestracja modułów
     app.register_blueprint(views_bp)
     app.register_blueprint(authors_bp)
