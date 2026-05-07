@@ -379,6 +379,7 @@ function addImageToGallery(data, append = false) {
             <div class="selection-indicator"></div>
             <div class="image-container">
                 <img src="${url}" alt="${title}" loading="lazy">
+                <div class="zoom-btn" onclick="event.stopPropagation(); window.open('${url}', '_blank')" title="Otwórz w pełnym rozmiarze">🔍</div>
             </div>
             <div class="info">
                 <div class="info-top">
