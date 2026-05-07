@@ -48,70 +48,80 @@ Do NOT wrap the JSON in markdown code blocks. Output raw JSON only."""
 def generate_puzzle_ideas(author: Author, count: int) -> list[PuzzleIdea]:
     """
     Generuje unikalne pomysły na sceny puzzli dla danego autora.
-    Używa modelu tekstowego Gemini z mechanizmem retry i czyszczeniem markdown.
+    Dzieli proces na mniejsze paczki, aby uniknąć limitów tokenów Gemini.
     """
+    all_ideas = []
+    chunk_size = 5
+    
     negative_section = ""
     if author.negative_prompts:
         negative_section = f"- Things to AVOID: {', '.join(author.negative_prompts)}"
 
-    prompt = SCENE_GENERATION_PROMPT.format(
-        author_name=author.name,
-        theme=author.theme,
-        scene_instructions=author.scene_instructions,
-        negative_section=negative_section,
-        count=count,
-    )
+    total_chunks = (count + chunk_size - 1) // chunk_size
+    
+    for chunk_idx in range(total_chunks):
+        current_chunk_count = min(chunk_size, count - len(all_ideas))
+        if current_chunk_count <= 0: break
+        
+        prompt = SCENE_GENERATION_PROMPT.format(
+            author_name=author.name,
+            theme=author.theme,
+            scene_instructions=author.scene_instructions,
+            negative_section=negative_section,
+            count=current_chunk_count,
+        )
 
-    max_retries = 2
-    for attempt in range(max_retries + 1):
-        try:
-            print(f"  🧠 Generuję {count} pomysłów na sceny (próba {attempt+1}/{max_retries+1})...")
+        max_retries = 2
+        chunk_success = False
+        
+        for attempt in range(max_retries + 1):
+            try:
+                print(f"  🧠 Generuję paczkę {chunk_idx + 1}/{total_chunks} ({current_chunk_count} pomysłów, próba {attempt+1})...")
 
-            response = client.models.generate_content(
-                model=config.TEXT_MODEL,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=1.0,
-                    max_output_tokens=8192,
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                ),
-            )
+                response = client.models.generate_content(
+                    model=config.TEXT_MODEL,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=1.0,
+                        max_output_tokens=8192,
+                        thinking_config=types.ThinkingConfig(thinking_budget=0),
+                    ),
+                )
 
-            if not response.candidates or not response.text:
-                raise ValueError("Gemini zwrócił pustą odpowiedź")
+                if not response.candidates or not response.text:
+                    raise ValueError("Gemini zwrócił pustą odpowiedź")
 
-            raw_text = response.text.strip()
-            
-            # 1. Wyciąganie JSON-a (tablicy)
-            json_match = re.search(r'\[\s*\{.*\}\s*\]', raw_text, re.DOTALL)
-            if json_match:
-                raw_text = json_match.group(0)
-            else:
-                raw_text = re.sub(r'^```(?:json)?\s*\n?', '', raw_text, flags=re.MULTILINE)
-                raw_text = re.sub(r'\n?```\s*$', '', raw_text, flags=re.MULTILINE)
-            
-            # 2. CZYSZCZENIE: usuwamy podwójne gwiazdki markdown z wnętrza opisu
-            raw_text = raw_text.replace("**", "")
-            
-            ideas_data = json.loads(raw_text)
-            
-            ideas = []
-            for i, item in enumerate(ideas_data):
-                if "title" not in item or "scene" not in item:
-                    continue
-                ideas.append(PuzzleIdea(title=item["title"], scene=item["scene"]))
+                raw_text = response.text.strip()
+                
+                # Wyciąganie JSON-a (tablicy)
+                json_match = re.search(r'\[\s*\{.*\}\s*\]', raw_text, re.DOTALL)
+                if json_match:
+                    raw_text = json_match.group(0)
+                else:
+                    raw_text = re.sub(r'^```(?:json)?\s*\n?', '', raw_text, flags=re.MULTILINE)
+                    raw_text = re.sub(r'\n?```\s*$', '', raw_text, flags=re.MULTILINE)
+                
+                # Czyszczenie markdown (gwiazdki)
+                raw_text = raw_text.replace("**", "")
+                
+                ideas_data = json.loads(raw_text)
+                
+                for item in ideas_data:
+                    if "title" not in item or "scene" not in item:
+                        continue
+                    all_ideas.append(PuzzleIdea(title=item["title"], scene=item["scene"]))
 
-            if not ideas:
-                raise ValueError("Brak poprawnych scen w JSON")
+                print(f"  ✅ Dodano {len(ideas_data)} pomysłów (łącznie: {len(all_ideas)})")
+                chunk_success = True
+                break
 
-            print(f"  ✅ Wygenerowano {len(ideas)} pomysłów")
-            return ideas
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"  ⚠️ Błąd paczki {chunk_idx + 1} ({e}), ponawiam...")
+                if attempt < max_retries:
+                    import time
+                    time.sleep(1)
+        
+        if not chunk_success:
+            print(f"  ❌ Nie udało się wygenerować paczki {chunk_idx + 1} po {max_retries+1} próbach.")
 
-        except (json.JSONDecodeError, ValueError) as e:
-            if attempt < max_retries:
-                print(f"  ⚠️ Błąd generowania pomysłów ({e}), ponawiam próbę...")
-                import time
-                time.sleep(1)
-            else:
-                print(f"  ❌ Nie udało się wygenerować pomysłów po {max_retries+1} próbach.")
-                raise
+    return all_ideas
