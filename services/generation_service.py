@@ -173,18 +173,19 @@ def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux,
                 batch_job = create_image_batch_job(author.name, author.slug, ideas)
                 
                 q.put({"type": "status", "message": f"✅ Zadanie Batch utworzone: {batch_job.name}"})
-                time.sleep(2)
+                time.sleep(1)
                 q.put({"type": "done", "total_images": 0})
                 return
             except Exception as batch_err:
-                print(f"❌ Błąd tworzenia Batch: {batch_err}")
-                q.put({"type": "error", "message": f"Błąd Batch API: {str(batch_err)}"})
+                print(f"❌ Błąd Batch API: {batch_err}")
+                q.put({"type": "error", "message": f"Problem z Gemini: {str(batch_err)}"})
                 q.put({"type": "done", "total_images": 0})
                 return
 
         q.put({"type": "status", "message": f"Ładuję autora: {author.name}..."})
 
-        ideas = generate_puzzle_ideas(author, count)
+        # Przekazujemy 'q' również tutaj dla trybu Standard
+        ideas = generate_puzzle_ideas(author, count, q)
         q.put({
             "type": "scenes_ready",
             "count": len(ideas),

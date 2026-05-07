@@ -41,23 +41,30 @@ async function refreshBatchQueue() {
         
         list.innerHTML = jobs.map(job => {
             const isCompleted = job.status === 'COMPLETED';
-            const importBtn = isCompleted ? `<button class="btn-new" style="margin-top: 10px; width: 100%; font-size: 11px;" onclick="importBatchResults('${job.id}')">📥 Importuj wyniki do galerii</button>` : '';
+            const isFailed = job.status === 'FAILED';
+            
+            let actionBtn = '';
+            if (isCompleted) {
+                actionBtn = `<button class="btn-new" style="margin-top: 10px; width: 100%; font-size: 11px;" onclick="importBatchResults('${job.id}')">📥 Importuj wyniki do galerii</button>`;
+            } else if (isFailed) {
+                actionBtn = `<button class="btn-secondary" style="margin-top: 10px; width: 100%; font-size: 11px; background: #e67e22; color: white;" onclick="retryBatchJob('${job.id}')">🔄 Ponów zadanie (użyj tych samych pomysłów)</button>`;
+            }
             
             return `
                 <div class="batch-item">
                     <div class="batch-header">
-                        <span class="batch-id">${job.id}</span>
-                        <span class="batch-status-tag status-${job.status.toLowerCase()}">${job.status}</span>
+                        <span class="batch-id">${job.id.split('/').pop()}</span>
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <span class="batch-status-tag status-${job.status.toLowerCase()}">${job.status}</span>
+                            <button onclick="deleteBatchJob('${job.id}')" style="background: none; border: none; color: #ff4757; cursor: pointer; font-size: 16px; padding: 0 5px;">&times;</button>
+                        </div>
                     </div>
                     <div style="font-size: 13px; font-weight: 600;">${job.author_name} - ${job.count}</div>
                     <div style="font-size: 11px; color: #888;">Zlecono: ${job.created_at}</div>
                     <div class="batch-progress">
                         <div class="batch-progress-fill" style="width: ${job.progress}%"></div>
                     </div>
-                    <div style="font-size: 10px; color: #555; text-align: right; margin-top: 2px;">
-                        Status: ${job.eta || 'Obliczanie...'}
-                    </div>
-                    ${importBtn}
+                    ${actionBtn}
                 </div>
             `;
         }).join('');
@@ -95,9 +102,10 @@ async function importBatchResults(jobId) {
                     eventSource.close();
                     setTimeout(() => window.location.reload(), 1500);
                 } else if (evt.type === 'error') {
-                    alert("Błąd importu: " + evt.message);
+                    status.innerHTML = `<span style="color: #ff4757;">⚠️ ${evt.message}</span><br>
+                                       <small style="color: #888;">Zalecamy odczekać 2-3 minuty i spróbować ponownie.</small>`;
                     eventSource.close();
-                    resetImportBtn(btn, originalText);
+                    resetGenerateBtn();
                 }
             };
         } else {
@@ -105,8 +113,45 @@ async function importBatchResults(jobId) {
             resetImportBtn(btn, originalText);
         }
     } catch (e) {
-        alert("Błąd: " + e.message);
-        resetImportBtn(btn, originalText);
+        console.error(e);
+        status.innerHTML = `<span style="color: #ff4757;">❌ Błąd: ${e.message}</span>`;
+        resetGenerateBtn();
+    }
+}
+
+async function retryBatchJob(jobId) {
+    if (!confirm("Czy na pewno chcesz ponowić to zadanie używając tych samych pomysłów?")) return;
+    
+    try {
+        const resp = await fetch(`/api/batch-retry/${jobId}`, { method: 'POST' });
+        const data = await resp.json();
+        
+        if (data.success) {
+            alert("Zadanie zostało ponowione! Sprawdź górę kolejki.");
+            refreshBatchQueue();
+        } else {
+            alert("Błąd podczas ponawiania: " + data.error);
+        }
+    } catch (e) {
+        alert("Błąd sieci: " + e.message);
+    }
+}
+
+async function deleteBatchJob(jobId) {
+    if (!confirm("Czy na pewno chcesz usunąć/anulować to zadanie?")) return;
+    
+    try {
+        const resp = await fetch(`/api/batch-jobs/${jobId}`, { method: 'DELETE' });
+        const data = await resp.json();
+        
+        if (data.success) {
+            refreshBatchQueue();
+        } else {
+            alert("Zadanie zostało anulowane lub ukryte.");
+            refreshBatchQueue();
+        }
+    } catch (e) {
+        alert("Błąd sieci: " + e.message);
     }
 }
 

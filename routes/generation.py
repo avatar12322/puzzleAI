@@ -105,3 +105,22 @@ def api_batch_results(job_id):
 
     threading.Thread(target=run_import).start()
     return jsonify({"session_id": session_id})
+
+@generation_bp.route("/api/batch-retry/<path:job_id>", methods=["POST"])
+def api_batch_retry(job_id):
+    """Ponawia zadanie batch używając zapisanych pomysłów."""
+    try:
+        # job_id może zawierać 'batches/', wycinamy to
+        clean_id = job_id.split('/')[-1]
+        from services.batch_api_service import retry_batch_job
+        new_job = retry_batch_job(clean_id)
+        return jsonify({"success": True, "new_job_id": new_job.name})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@generation_bp.route("/api/batch-jobs/<path:job_id>", methods=["DELETE"])
+def api_delete_batch_job(job_id):
+    """Anuluje zadanie batch."""
+    from services.batch_api_service import cancel_batch_job
+    success = cancel_batch_job(job_id)
+    return jsonify({"success": success})

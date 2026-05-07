@@ -56,7 +56,7 @@ def create_image_batch_job(author_name, author_slug, ideas, model_name="gemini-3
         config=types.UploadFileConfig(display_name=file_name, mime_type='application/jsonl')
     )
     
-    # 3. Utworzenie zadania Batch
+    # 3. Tworzenie zadania Batch
     print(f"🚀 Tworzę zadanie Batch w Google dla autora: {author_name}")
     batch_job = client.batches.create(
         model=model_name,
@@ -65,16 +65,85 @@ def create_image_batch_job(author_name, author_slug, ideas, model_name="gemini-3
             'display_name': f"Puzzles-{author_name}-{timestamp}",
         },
     )
+
+    # 4. Zapisujemy metadane pomysłów lokalnie (na wypadek ponowienia)
+    try:
+        meta_dir = os.path.join(config.OUTPUT_DIR, ".batch_metadata")
+        os.makedirs(meta_dir, exist_ok=True)
+        # Wyciągamy ID zadania z pełnej nazwy (np. batches/123 -> 123)
+        job_id = batch_job.name.split('/')[-1]
+        meta_path = os.path.join(meta_dir, f"{job_id}.json")
+        
+        # Konwertujemy obiekty PuzzleIdea na słowniki
+        ideas_data = [{"title": i.title, "scene": i.scene} for i in ideas]
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "author_name": author_name,
+                "author_slug": author_slug,
+                "ideas": ideas_data
+            }, f, indent=2)
+    except Exception as e:
+        print(f"⚠️ Nie udało się zapisać metadanych do ponowienia: {e}")
     
     return batch_job
 
-def list_batch_jobs():
-    """Pobiera listę zadań z API Google i mapuje na nasz format UI."""
+def retry_batch_job(old_job_id):
+    """Ponawia nieudane zadanie Batch używając zapisanych wcześniej pomysłów."""
+    meta_path = os.path.join(config.OUTPUT_DIR, ".batch_metadata", f"{old_job_id}.json")
+    if not os.path.exists(meta_path):
+        raise FileNotFoundError(f"Nie znaleziono metadanych dla zadania {old_job_id}")
+    
+    with open(meta_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    
+    from models import PuzzleIdea
+    ideas = [PuzzleIdea(title=i['title'], scene=i['scene']) for i in data['ideas']]
+    
+    # Tworzymy nowe zadanie używając tych samych pomysłów
+    return create_image_batch_job(data['author_name'], data['author_slug'], ideas)
+
+def get_hidden_jobs():
+    """Pobiera listę ID zadań ukrytych przez użytkownika."""
+    path = os.path.join(config.OUTPUT_DIR, ".hidden_batches.json")
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+    return []
+
+def cancel_batch_job(job_id):
+    """Anuluje zadanie w Google API i dodaje do lokalnej listy ukrytych."""
     client = get_client()
+    clean_id = job_id.split('/')[-1]
+    full_name = f"batches/{clean_id}"
+    
+    # 1. Próbujemy anulować w Google
+    try:
+        client.batches.cancel(name=full_name)
+    except:
+        pass # Ignorujemy błędy jeśli już skończone
+        
+    # 2. Dodajemy do lokalnej czarnej listy (ukrywamy w UI)
+    hidden = get_hidden_jobs()
+    if clean_id not in hidden:
+        hidden.append(clean_id)
+        path = os.path.join(config.OUTPUT_DIR, ".hidden_batches.json")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(hidden, f)
+    return True
+
+def list_batch_jobs():
+    """Pobiera listę zadań z API Google i mapuje na nasz format UI, filtrując ukryte."""
+    client = get_client()
+    hidden = get_hidden_jobs()
     try:
         google_jobs = client.batches.list()
         ui_jobs = []
         for job in google_jobs:
+            clean_id = job.name.split('/')[-1]
+            if clean_id in hidden:
+                continue
+
             # Mapowanie statusów Google na nasze statusy UI
             state = getattr(job.state, 'name', str(job.state)) if hasattr(job, 'state') else 'UNKNOWN'
             display_name = getattr(job, 'display_name', "AI Batch")

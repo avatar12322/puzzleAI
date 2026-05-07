@@ -135,14 +135,19 @@ def generate_puzzle_ideas(author: Author, count: int, q=None) -> list[PuzzleIdea
                 chunk_success = True
                 break
 
-            except (json.JSONDecodeError, ValueError) as e:
-                print(f"  ⚠️ Błąd paczki {chunk_idx + 1} ({e}), ponawiam...")
+            except Exception as e:
+                print(f"  ⚠️ Błąd w paczce {chunk_idx + 1} ({e}), ponawiam...")
                 if attempt < max_retries:
                     import time
-                    time.sleep(1)
+                    # Przy błędzie 503 (przeciążenie) czekamy dłużej
+                    wait_time = 5 if "503" in str(e) or "overloaded" in str(e).lower() else 1
+                    time.sleep(wait_time)
+                else:
+                    # Jeśli to ostatnia próba, wyrzucamy błąd wyżej
+                    raise Exception(f"Błąd po {max_retries+1} próbach: {str(e)}")
         
         if not chunk_success:
-            print(f"  ❌ Nie udało się wygenerować paczki {chunk_idx + 1}")
+            raise Exception(f"Nie udało się wygenerować paczki {chunk_idx + 1}. Spróbuj ponownie za chwilę.")
 
     # Końcowy raport postępu przed wysyłką Batch
     if q:
