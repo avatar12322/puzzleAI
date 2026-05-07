@@ -54,7 +54,7 @@ async function refreshBatchQueue() {
                 <div class="batch-item">
                     <div class="batch-header">
                         <span class="batch-id">${job.id.split('/').pop()}</span>
-                        <div style="display: flex; gap: 5px; align-items: center;">
+                        <div style="display: flex; gap: 8px; align-items: center;">
                             <span class="batch-status-tag status-${job.status.toLowerCase()}">${job.status}</span>
                             <button onclick="deleteBatchJob('${job.id}')" style="background: none; border: none; color: #ff4757; cursor: pointer; font-size: 16px; padding: 0 5px;">&times;</button>
                         </div>
@@ -152,6 +152,36 @@ async function deleteBatchJob(jobId) {
         }
     } catch (e) {
         alert("Błąd sieci: " + e.message);
+    }
+}
+
+async function refreshSingleJob(jobId) {
+    const btn = event?.target;
+    if (btn) {
+        btn.style.transition = 'transform 0.5s';
+        btn.style.transform = 'rotate(360deg)';
+    }
+    
+    try {
+        // ID może zawierać 'batches/', fetch to obsłuży przez encodeURIComponent lub przekazanie path
+        const cleanId = jobId.split('/').pop();
+        const resp = await fetch(`/api/batch-jobs/${cleanId}`);
+        const data = await resp.json();
+        
+        console.log("Fresh Job Data:", data);
+        
+        // Po pobraniu świeżych danych i tak odświeżamy całą listę, żeby UI się zaktualizował
+        await refreshBatchQueue();
+        
+        if (data.status === 'COMPLETED') {
+            alert("Zadanie zakończone! Przycisk importu powinien być już widoczny.");
+        }
+    } catch (e) {
+        console.error("Błąd odświeżania:", e);
+    } finally {
+        setTimeout(() => {
+            if (btn) btn.style.transform = 'rotate(0deg)';
+        }, 500);
     }
 }
 

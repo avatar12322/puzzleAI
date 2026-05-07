@@ -133,28 +133,41 @@ def cancel_batch_job(job_id):
     return True
 
 def list_batch_jobs():
-    """Pobiera listę zadań z API Google i mapuje na nasz format UI, filtrując ukryte."""
+    """Pobiera listę zadań i filtruje te ukryte przez użytkownika."""
     client = get_client()
     hidden = get_hidden_jobs()
+    
     try:
         google_jobs = client.batches.list()
         ui_jobs = []
         for job in google_jobs:
+            # ID w Google to 'batches/XYZ', my w hidden trzymamy 'XYZ'
             clean_id = job.name.split('/')[-1]
             if clean_id in hidden:
                 continue
 
             # Mapowanie statusów Google na nasze statusy UI
-            state = getattr(job.state, 'name', str(job.state)) if hasattr(job, 'state') else 'UNKNOWN'
+            state_raw = str(job.state).upper()
+            print(f"DEBUG: Job {clean_id} raw state: {state_raw}")
+            # Logujemy pełne dane dla analizy opóźnienia
+            print(f"DEBUG: Job Data: {job}")
+            
+            # Czyścimy status (usuwamy JOBSTATE., JOB_STATE_ itp.)
+            state_clean = state_raw.split('.')[-1].replace('JOB_STATE_', '').replace('STATE_', '')
             display_name = getattr(job, 'display_name', "AI Batch")
             
             status_map = {
-                'JOB_STATE_PENDING': 'PENDING',
-                'JOB_STATE_RUNNING': 'RUNNING',
-                'JOB_STATE_SUCCEEDED': 'COMPLETED',
-                'JOB_STATE_FAILED': 'FAILED',
-                'JOB_STATE_CANCELLED': 'FAILED'
+                'PENDING': 'PENDING',
+                'ACTIVE': 'RUNNING',
+                'RUNNING': 'RUNNING',
+                'SUCCEEDED': 'COMPLETED',
+                'SUCCESS': 'COMPLETED',
+                'FAILED': 'FAILED',
+                'CANCELLED': 'CANCELLED',
+                'CANCELED': 'CANCELLED'
             }
+            
+            final_status = status_map.get(state_clean, state_clean)
             
             from datetime import timedelta
             created_at_local = (job.create_time + timedelta(hours=2)).strftime("%d.%m %H:%M") if hasattr(job, 'create_time') and job.create_time else "---"
@@ -163,14 +176,14 @@ def list_batch_jobs():
                 "id": job.name,
                 "author_name": display_name.split('-')[1] if '-' in display_name else display_name,
                 "count": "Batch",
-                "status": status_map.get(state, state),
-                "progress": 100 if state == 'JOB_STATE_SUCCEEDED' else (50 if state == 'JOB_STATE_RUNNING' else 0),
+                "status": final_status,
+                "progress": 100 if final_status == 'COMPLETED' else (50 if final_status == 'RUNNING' else 0),
                 "created_at": created_at_local,
-                "eta": "W toku" if state == 'JOB_STATE_RUNNING' else ("Gotowe" if state == 'JOB_STATE_SUCCEEDED' else "~24h")
+                "eta": "W toku" if final_status == 'RUNNING' else ("Gotowe" if final_status == 'COMPLETED' else "---")
             })
         return ui_jobs
     except Exception as e:
-        print(f"⚠️ Błąd pobierania zadań z Google: {e}")
+        print(f"⚠️ Błąd pobierania zadań: {e}")
         return []
 
 def get_job_details(job_name):

@@ -88,20 +88,24 @@ def api_batch_jobs():
 def api_batch_results(job_id):
     """Przetwarza wyniki zakończonego zadania batch w tle (kompatybilność z Render)."""
     import threading
+    import queue
     import uuid
     from services.batch_api_service import process_batch_results
     from services.generation_service import generation_events, generation_results
 
-    session_id = str(uuid.uuid4())[:8]
-    generation_events[session_id] = []
+    session_id = request.args.get('session_id') or str(uuid.uuid4())[:8]
+    # Używamy Queue, aby SSE (EventSource) mogło poprawnie czytać dane
+    generation_events[session_id] = queue.Queue()
     
     def run_import():
+        q = generation_events[session_id]
         try:
+            q.put({"type": "status", "message": "Rozpoczynam pobieranie obrazków z Google..."})
             result = process_batch_results(job_id)
             generation_results[session_id] = result
-            generation_events[session_id].append({"type": "done", "success": True, "count": result.get("count", 0)})
+            q.put({"type": "done", "success": True, "count": result.get("count", 0), "message": f"Zaimportowano {result.get('count', 0)} obrazków!"})
         except Exception as e:
-            generation_events[session_id].append({"type": "error", "message": str(e)})
+            q.put({"type": "error", "message": f"Błąd importu: {str(e)}"})
 
     threading.Thread(target=run_import).start()
     return jsonify({"session_id": session_id})
@@ -116,6 +120,27 @@ def api_batch_retry(job_id):
         new_job = retry_batch_job(clean_id)
         return jsonify({"success": True, "new_job_id": new_job.name})
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@generation_bp.route("/api/batch-jobs/<path:job_id>", methods=["GET"])
+def api_get_batch_job(job_id):
+    """Pobiera najświeższy status pojedynczego zadania."""
+    from services.batch_api_service import get_job_details
+    try:
+        # Upewniamy się, że mamy pełną nazwę batches/ID
+        full_name = job_id if job_id.startswith('batches/') else f"batches/{job_id}"
+        job = get_job_details(full_name)
+        
+        # Mapujemy na nasz format UI
+        from services.batch_api_service import list_batch_jobs
+        all_jobs = list_batch_jobs() 
+        for j in all_jobs:
+            if j['id'] == full_name or j['id'].endswith(job_id):
+                return jsonify(j)
+        return jsonify({"error": "Zadanie nieznalezione"}), 404
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @generation_bp.route("/api/batch-jobs/<path:job_id>", methods=["DELETE"])
