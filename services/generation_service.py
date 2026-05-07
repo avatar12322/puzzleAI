@@ -168,7 +168,7 @@ def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux,
             try:
                 from services.batch_api_service import create_image_batch_job
                 # Musimy wygenerować pomysły przed wysłaniem do Batch
-                ideas = generate_puzzle_ideas(author, count)
+                ideas = generate_puzzle_ideas(author, count, q)
                 
                 batch_job = create_image_batch_job(author.name, author.slug, ideas)
                 

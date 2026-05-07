@@ -45,10 +45,10 @@ IMPORTANT: Respond ONLY with valid JSON in this exact format:
 Do NOT wrap the JSON in markdown code blocks. Output raw JSON only."""
 
 
-def generate_puzzle_ideas(author: Author, count: int) -> list[PuzzleIdea]:
+def generate_puzzle_ideas(author: Author, count: int, q=None) -> list[PuzzleIdea]:
     """
     Generuje unikalne pomysły na sceny puzzli dla danego autora.
-    Dzieli proces na mniejsze paczki, aby uniknąć limitów tokenów Gemini.
+    Dzieli proces na mniejsze paczki i raportuje postęp do kolejki zdarzeń.
     """
     all_ideas = []
     chunk_size = 5
@@ -63,6 +63,16 @@ def generate_puzzle_ideas(author: Author, count: int) -> list[PuzzleIdea]:
         current_chunk_count = min(chunk_size, count - len(all_ideas))
         if current_chunk_count <= 0: break
         
+        # Raportujemy postęp przed startem paczki
+        if q:
+            q.put({
+                "type": "generating", 
+                "title": f"Wymyślam sceny ({len(all_ideas) + 1}-{len(all_ideas) + current_chunk_count})",
+                "model": "Gemini Flash",
+                "current": len(all_ideas),
+                "total": count
+            })
+
         prompt = SCENE_GENERATION_PROMPT.format(
             author_name=author.name,
             theme=author.theme,
@@ -76,8 +86,8 @@ def generate_puzzle_ideas(author: Author, count: int) -> list[PuzzleIdea]:
         
         for attempt in range(max_retries + 1):
             try:
-                print(f"  🧠 Generuję paczkę {chunk_idx + 1}/{total_chunks} ({current_chunk_count} pomysłów, próba {attempt+1})...")
-
+                print(f"  🧠 Generuję paczkę {chunk_idx + 1}/{total_chunks} ({current_chunk_count} pomysłów)...")
+                
                 response = client.models.generate_content(
                     model=config.TEXT_MODEL,
                     contents=prompt,
@@ -101,7 +111,7 @@ def generate_puzzle_ideas(author: Author, count: int) -> list[PuzzleIdea]:
                     raw_text = re.sub(r'^```(?:json)?\s*\n?', '', raw_text, flags=re.MULTILINE)
                     raw_text = re.sub(r'\n?```\s*$', '', raw_text, flags=re.MULTILINE)
                 
-                # Czyszczenie markdown (gwiazdki)
+                # Czyszczenie markdown
                 raw_text = raw_text.replace("**", "")
                 
                 ideas_data = json.loads(raw_text)
@@ -110,6 +120,16 @@ def generate_puzzle_ideas(author: Author, count: int) -> list[PuzzleIdea]:
                     if "title" not in item or "scene" not in item:
                         continue
                     all_ideas.append(PuzzleIdea(title=item["title"], scene=item["scene"]))
+
+                # Raportujemy postęp po udanej paczce
+                if q:
+                    q.put({
+                        "type": "generating", 
+                        "title": f"Gotowe {len(all_ideas)}/{count} scen",
+                        "model": "Gemini Flash",
+                        "current": len(all_ideas),
+                        "total": count
+                    })
 
                 print(f"  ✅ Dodano {len(ideas_data)} pomysłów (łącznie: {len(all_ideas)})")
                 chunk_success = True
@@ -122,6 +142,16 @@ def generate_puzzle_ideas(author: Author, count: int) -> list[PuzzleIdea]:
                     time.sleep(1)
         
         if not chunk_success:
-            print(f"  ❌ Nie udało się wygenerować paczki {chunk_idx + 1} po {max_retries+1} próbach.")
+            print(f"  ❌ Nie udało się wygenerować paczki {chunk_idx + 1}")
+
+    # Końcowy raport postępu przed wysyłką Batch
+    if q:
+        q.put({
+            "type": "generating", 
+            "title": "Przygotowywanie wysyłki Batch...",
+            "model": "System",
+            "current": count,
+            "total": count
+        })
 
     return all_ideas
