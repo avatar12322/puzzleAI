@@ -11,23 +11,23 @@ cloudinary.config(
     secure=True
 )
 
-def upload_image(file_path, folder="puzzle_ai"):
-    """Przesyła obraz do Cloudinary. Usuwa rozszerzenie z public_id, aby uniknąć .jpg.jpg."""
+def upload_image(file_path, folder="puzzle_ai", metadata=None):
+    """Przesyła obraz do Cloudinary z opcjonalnymi metadanymi."""
     try:
-        # Pobieramy nazwę pliku i usuwamy rozszerzenie dla Cloudinary public_id
-        base_filename = os.path.basename(file_path)
-        public_id = os.path.splitext(base_filename)[0]
-        
-        response = cloudinary.uploader.upload(
+        # Konwertujemy metadata na context (Cloudinary używa context dla par klucz-wartość)
+        context = metadata if metadata else {}
+            
+        result = cloudinary.uploader.upload(
             file_path,
             folder=folder,
-            public_id=public_id,
-            resource_type="image",
-            overwrite=True
+            use_filename=True,
+            unique_filename=True,
+            overwrite=True,
+            context=context
         )
-        return response.get("secure_url")
+        return result.get("secure_url")
     except Exception as e:
-        print(f"Błąd Cloudinary Upload (Image): {e}")
+        print(f"❌ Cloudinary Upload Error: {e}")
         return None
 
 def upload_raw_file(file_path, folder="authors"):

@@ -11,7 +11,9 @@ def get_history():
         resources = cloudinary.api.resources(
             type="upload",
             prefix="puzzle_ai/",
-            max_results=500
+            max_results=500,
+            metadata=True,
+            context=True
         ).get("resources", [])
         
         # Mapa wszystkich plików (public_id -> secure_url)
@@ -36,20 +38,33 @@ def get_history():
                 filename = parts[2]
                 url = res.get("secure_url")
                 
+                # Pobieramy koszt z metadanych lub kontekstu
+                context = res.get("context", {}).get("custom", {})
+                cost = context.get("cost")
+                if not cost:
+                    cost = res.get("context", {}).get("cost")
+
                 # Szukamy odpowiadającego mu preview
-                # Nowa konwencja: base_name + _pixel_preview
                 base_name = os.path.splitext(filename)[0]
                 preview_id = f"puzzle_ai/{author_slug}/{base_name}_pixel_preview"
                 preview_url = all_urls.get(preview_id)
 
+                from datetime import datetime, timedelta
+                created_at_utc = res.get("created_at", "")
+                created_at_local = ""
+                if created_at_utc:
+                    dt = datetime.strptime(created_at_utc, "%Y-%m-%dT%H:%M:%SZ")
+                    created_at_local = (dt + timedelta(hours=2)).strftime("%d.%m %H:%M")
+
                 history.append({
                     "id": filename,
                     "title": base_name.replace('_', ' '),
-                    "model": "Cloud",
+                    "model": "Gemini (Cloud)",
                     "url": url,
                     "preview_url": preview_url,
                     "author_slug": author_slug,
-                    "created_at": res.get("created_at")
+                    "created_at": created_at_local,
+                    "cost": float(cost) if cost else None
                 })
         
         if history:

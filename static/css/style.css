@@ -248,6 +248,38 @@ select option {
     display: flex;
 }
 
+/* Mode Selector (Standard/Batch) */
+.mode-selector {
+    display: flex;
+    background: #0d0d1a;
+    border-radius: 10px;
+    padding: 3px;
+    gap: 4px;
+}
+
+.mode-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #666;
+    padding: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 7px;
+    transition: all 0.2s;
+}
+
+.mode-btn.active {
+    background: #1e1e30;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.mode-btn:hover:not(.active) {
+    color: #888;
+}
+
 .field-help {
     font-size: 11px;
     color: #666;
@@ -598,12 +630,23 @@ select option {
 }
 
 .model-badge {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
     border-radius: 20px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cost-tag {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 800;
 }
 
 .badge-gemini {
@@ -771,6 +814,79 @@ select option {
 .btn-save {
     background: #e94560;
     color: white;
+}
+/* Batch Queue Styles */
+.batch-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.batch-item {
+    background: #1a1a2e;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.2s;
+}
+
+.batch-item:hover {
+    border-color: rgba(233, 69, 96, 0.4);
+}
+
+.batch-item .batch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.batch-item .batch-id {
+    font-size: 11px;
+    color: #555;
+    font-family: monospace;
+}
+
+.batch-status-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.status-pending { background: rgba(245, 166, 35, 0.15); color: #f5a623; }
+.status-running { background: rgba(66, 133, 244, 0.15); color: #4285f4; }
+.status-completed { background: rgba(39, 174, 96, 0.15); color: #2ecc71; }
+.status-failed { background: rgba(192, 57, 43, 0.15); color: #e74c3c; }
+
+.batch-progress {
+    height: 4px;
+    background: #0d0d1a;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.batch-progress-fill {
+    height: 100%;
+    background: #e94560;
+    width: 0%;
+    transition: width 0.5s ease;
+}
+
+.empty-queue {
+    text-align: center;
+    padding: 30px;
+    color: #444;
+    font-style: italic;
+    font-size: 13px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
 }
 
 .btn-save:hover {

@@ -16,10 +16,105 @@ function loadDataFromDOM() {
 function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     if (tabId === 'generator') document.getElementById('tabGenBtn').classList.add('active');
-    else document.getElementById('tabAuthorBtn').classList.add('active');
+    else if (tabId === 'authors') document.getElementById('tabAuthorBtn').classList.add('active');
+    else if (tabId === 'queue') document.getElementById('tabQueueBtn').classList.add('active');
+    
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     if (tabId === 'generator') document.getElementById('tabGenerator').classList.add('active');
-    else document.getElementById('tabAuthors').classList.add('active');
+    else if (tabId === 'authors') document.getElementById('tabAuthors').classList.add('active');
+    else if (tabId === 'queue') {
+        document.getElementById('tabQueue').classList.add('active');
+        refreshBatchQueue();
+    }
+}
+
+async function refreshBatchQueue() {
+    const list = document.getElementById('batchQueueList');
+    try {
+        const resp = await fetch('/api/batch-jobs');
+        const jobs = await resp.json();
+        
+        if (!jobs || jobs.length === 0) {
+            list.innerHTML = '<div class="empty-queue">Brak aktywnych zadań w kolejce.</div>';
+            return;
+        }
+        
+        list.innerHTML = jobs.map(job => {
+            const isCompleted = job.status === 'COMPLETED';
+            const importBtn = isCompleted ? `<button class="btn-new" style="margin-top: 10px; width: 100%; font-size: 11px;" onclick="importBatchResults('${job.id}')">📥 Importuj wyniki do galerii</button>` : '';
+            
+            return `
+                <div class="batch-item">
+                    <div class="batch-header">
+                        <span class="batch-id">${job.id}</span>
+                        <span class="batch-status-tag status-${job.status.toLowerCase()}">${job.status}</span>
+                    </div>
+                    <div style="font-size: 13px; font-weight: 600;">${job.author_name} - ${job.count}</div>
+                    <div style="font-size: 11px; color: #888;">Zlecono: ${job.created_at}</div>
+                    <div class="batch-progress">
+                        <div class="batch-progress-fill" style="width: ${job.progress}%"></div>
+                    </div>
+                    <div style="font-size: 10px; color: #555; text-align: right; margin-top: 2px;">
+                        Status: ${job.eta || 'Obliczanie...'}
+                    </div>
+                    ${importBtn}
+                </div>
+            `;
+        }).join('');
+        
+    } catch (e) {
+        console.error("Błąd odświeżania kolejki:", e);
+        list.innerHTML = '<div class="empty-queue" style="color: #e74c3c;">Błąd połączenia z serwerem.</div>';
+    }
+}
+
+async function importBatchResults(jobId) {
+    if (!confirm("Czy chcesz zaimportować obrazy z tego zadania do galerii? Może to chwilę potrwać.")) return;
+    
+    const btn = event.target;
+    const originalText = btn.textContent;
+    const progress = document.getElementById('progressBar');
+    const status = document.getElementById('statusText');
+    
+    try {
+        btn.disabled = true;
+        btn.textContent = "⏳ Importowanie obrazów...";
+        if (progress) progress.classList.add('active');
+        if (status) status.textContent = "Pobieranie i wysyłka do chmury...";
+
+        const resp = await fetch(`/api/batch-results/${jobId}`, { method: 'POST' });
+        const data = await resp.json();
+        
+        if (data.session_id) {
+            const eventSource = new EventSource(`/events/${data.session_id}`);
+            eventSource.onmessage = (event) => {
+                const evt = JSON.parse(event.data);
+                if (evt.type === 'done') {
+                    btn.textContent = "✅ Gotowe!";
+                    if (status) status.textContent = `Sukces! Zaimportowano ${evt.count} obrazów.`;
+                    eventSource.close();
+                    setTimeout(() => window.location.reload(), 1500);
+                } else if (evt.type === 'error') {
+                    alert("Błąd importu: " + evt.message);
+                    eventSource.close();
+                    resetImportBtn(btn, originalText);
+                }
+            };
+        } else {
+            alert(data.error || "Błąd podczas inicjalizacji importu.");
+            resetImportBtn(btn, originalText);
+        }
+    } catch (e) {
+        alert("Błąd: " + e.message);
+        resetImportBtn(btn, originalText);
+    }
+}
+
+function resetImportBtn(btn, text) {
+    btn.disabled = false;
+    btn.textContent = text;
+    document.getElementById('progressBar').classList.remove('active');
+    document.getElementById('statusText').textContent = 'Gotowy';
 }
 
 // --- GALLERY NAVIGATION LOGIC ---
@@ -195,11 +290,15 @@ function addImageToGallery(data, append = false) {
         return; 
     }
 
-    const createCard = (url, title, model, isPixel) => {
+    const createCard = (url, title, model, isPixel, cost) => {
         const publicId = getPublicIdFromUrl(url);
         const card = document.createElement('div');
         card.className = 'gallery-item';
         if (selectedItems.has(publicId)) card.classList.add('selected');
+
+        // Klasa CSS dla badge'a (małe litery, bez spacji i nawiasów)
+        const badgeClass = model.toLowerCase().split(' ')[0].replace(/[^a-z]/g, '');
+        const costLabel = cost ? `<span class="cost-tag">${parseFloat(cost).toFixed(2)} zł</span>` : '';
 
         card.innerHTML = `
             <div class="selection-indicator"></div>
@@ -209,7 +308,7 @@ function addImageToGallery(data, append = false) {
             <div class="info">
                 <div class="info-top">
                     <div class="title">${title} ${isPixel ? '(Pixel Art)' : ''}</div>
-                    <div class="model-badge badge-${model}">${model}</div>
+                    <div class="model-badge badge-${badgeClass}">${model} ${costLabel}</div>
                 </div>
             </div>
         `;
@@ -218,11 +317,11 @@ function addImageToGallery(data, append = false) {
         return card;
     };
 
-    const cardOrig = createCard(data.url, data.title, data.model, false);
+    const cardOrig = createCard(data.url, data.title, data.model, false, data.cost);
     if (append) gallery.appendChild(cardOrig); else gallery.prepend(cardOrig);
     
     if (data.preview_url) {
-        const cardPixel = createCard(data.preview_url, data.title, data.model, true);
+        const cardPixel = createCard(data.preview_url, data.title, data.model, true, data.cost);
         if (append) gallery.appendChild(cardPixel); else gallery.prepend(cardPixel);
     }
 }
@@ -252,6 +351,12 @@ function clearUpload() {
     updateUploadStatus();
 }
 
+function setGenMode(mode, el) {
+    document.getElementById('genMode').value = mode;
+    el.parentElement.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+    el.classList.add('active');
+}
+
 async function startGeneration() {
     const author = document.getElementById('authorSelect').value;
     const countInput = document.getElementById('countInput');
@@ -260,6 +365,7 @@ async function startGeneration() {
     const useFlux = document.getElementById('modelFlux').checked;
     const pixelSize = parseInt(document.getElementById('pixelSizeSelect').value);
     const manualFile = document.getElementById('manualUpload').files[0];
+    const genMode = document.getElementById('genMode').value;
 
     if (!author) { alert('Wybierz autora!'); return; }
     
@@ -289,7 +395,12 @@ async function startGeneration() {
             resp = await fetch('/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ author, count, gemini: useGemini, flux: useFlux, pixel_size: pixelSize }),
+                body: JSON.stringify({ 
+                    author, count, 
+                    gemini: useGemini, flux: useFlux, 
+                    pixel_size: pixelSize,
+                    gen_mode: genMode 
+                }),
             });
         }
 

@@ -18,6 +18,28 @@ from services.cloudinary_service import upload_image
 generation_events = {}
 generation_results = {}
 
+def calculate_generation_cost(input_tokens, output_tokens, mode, model_type='image'):
+    """
+    Oblicza szacunkowy koszt w PLN.
+    mode: 'standard' lub 'batch'
+    model_type: 'image' (Gemini 3 Pro) lub 'text' (Gemini 2.5 Flash)
+    """
+    USD_TO_PLN = 4.0
+    is_batch = (mode == 'batch')
+    multiplier = 0.5 if is_batch else 1.0
+    
+    if model_type == 'image':
+        # Koszt obrazu 2K: $0.067
+        base_cost_usd = 0.067 * multiplier
+        # Tokeny dla obrazu są zazwyczaj wliczone w cenę jednostkową lub bardzo tanie
+        return base_cost_usd * USD_TO_PLN
+    else:
+        # Koszt Gemini 2.5 Flash
+        in_price = (0.15 / 1_000_000) * multiplier
+        out_price = (1.25 / 1_000_000) * multiplier
+        cost_usd = (input_tokens * in_price) + (output_tokens * out_price)
+        return cost_usd * USD_TO_PLN
+
 
 def _get_preview_path(pixel_path: str) -> str:
     """Zwraca ścieżkę do pliku preview na podstawie ścieżki pixel art."""
@@ -56,7 +78,7 @@ def _upload_pixel_art(path: str, pixel_size: int, author_slug: str, label: str =
     return None
 
 
-def start_background_generation(author_name, count, use_gemini, use_flux, pixel_size):
+def start_background_generation(author_name, count, use_gemini, use_flux, pixel_size, gen_mode="standard"):
     """Tworzy sesję i uruchamia wątek generowania."""
     session_id = str(uuid.uuid4())[:8]
     generation_events[session_id] = queue.Queue()
@@ -64,7 +86,7 @@ def start_background_generation(author_name, count, use_gemini, use_flux, pixel_
 
     thread = threading.Thread(
         target=_run_generation_thread,
-        args=(session_id, author_name, count, use_gemini, use_flux, pixel_size),
+        args=(session_id, author_name, count, use_gemini, use_flux, pixel_size, gen_mode),
         daemon=True,
     )
     thread.start()
@@ -131,13 +153,35 @@ def _run_manual_pixelation_thread(session_id, author_name, file_storage, pixel_s
         q.put({"type": "done", "total_images": 0})
 
 
-def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux, pixel_size):
+def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux, pixel_size, gen_mode="standard"):
     """Wątek generowania — wysyła eventy przez kolejkę."""
     q = generation_events[session_id]
     results = generation_results[session_id]
 
     try:
         author = load_author(author_name)
+        
+        if gen_mode == "batch":
+            # PRAWDZIWY TRYB BATCH: Wysyłamy do Google API
+            q.put({"type": "status", "message": f"Przygotowywanie i wysyłka zadania Batch ({count} obrazków)..."})
+            
+            try:
+                from services.batch_api_service import create_image_batch_job
+                # Musimy wygenerować pomysły przed wysłaniem do Batch
+                ideas = generate_puzzle_ideas(author, count)
+                
+                batch_job = create_image_batch_job(author.name, author.slug, ideas)
+                
+                q.put({"type": "status", "message": f"✅ Zadanie Batch utworzone: {batch_job.name}"})
+                time.sleep(2)
+                q.put({"type": "done", "total_images": 0})
+                return
+            except Exception as batch_err:
+                print(f"❌ Błąd tworzenia Batch: {batch_err}")
+                q.put({"type": "error", "message": f"Błąd Batch API: {str(batch_err)}"})
+                q.put({"type": "done", "total_images": 0})
+                return
+
         q.put({"type": "status", "message": f"Ładuję autora: {author.name}..."})
 
         ideas = generate_puzzle_ideas(author, count)
@@ -170,8 +214,10 @@ def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux,
                 path = os.path.join(sub_dir, filename)
 
                 if generate_image(full_prompt, path):
-                    q.put({"type": "status", "message": "Wysyłam oryginał do chmury..."})
-                    remote_url = upload_image(path, folder=f"puzzle_ai/{author.slug}")
+                    q.put({"type": "status", "message": f"Przesyłam do chmury..."})
+                    from services.cloudinary_service import upload_image
+                    cost = calculate_generation_cost(0, 0, gen_mode, model_type='image')
+                    remote_url = upload_image(path, folder=f"puzzle_ai/{author.slug}", metadata={"cost": round(cost, 2)})
                     print(f"DEBUG (Gemini): Oryginał: {remote_url}")
 
                     pixel_url = None
@@ -179,11 +225,14 @@ def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux,
                         q.put({"type": "status", "message": f"Konwertuję do pixel art..."})
                         pixel_url = _upload_pixel_art(path, pixel_size, author.slug, label=" (Gemini)")
 
+                    cost = calculate_generation_cost(0, 0, gen_mode, model_type='image')
                     result = {
-                        "id": filename, "title": idea.title, "model": "Gemini",
+                        "id": filename, "title": idea.title, 
+                        "model": f"Gemini {'(Batch)' if gen_mode == 'batch' else ''}".strip(),
                         "url": remote_url or f"/output/{author.slug}/{filename}",
                         "preview_url": pixel_url,
                         "author_slug": author.slug, "index": i,
+                        "cost": round(cost, 2)
                     }
                     results.append(result)
                     q.put({"type": "image_ready", **result})
@@ -210,7 +259,8 @@ def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux,
                         pixel_url = _upload_pixel_art(path, pixel_size, author.slug, label=" (FLUX)")
 
                     result = {
-                        "id": filename, "title": idea.title, "model": "FLUX",
+                        "id": filename, "title": idea.title, 
+                        "model": f"FLUX {'(Batch)' if gen_mode == 'batch' else ''}".strip(),
                         "url": remote_url or f"/output/{author.slug}/{filename}",
                         "preview_url": pixel_url,
                         "author_slug": author.slug, "index": i,

@@ -26,11 +26,12 @@ def api_start_generation():
     use_gemini = data.get("gemini", True)
     use_flux = data.get("flux", False)
     pixel_size = int(data.get("pixel_size", 50))
+    gen_mode = data.get("gen_mode", "standard")
 
     if not author_name:
         return jsonify({"error": "Wybierz autora"}), 400
     
-    session_id = start_background_generation(author_name, count, use_gemini, use_flux, pixel_size)
+    session_id = start_background_generation(author_name, count, use_gemini, use_flux, pixel_size, gen_mode)
     return jsonify({"session_id": session_id})
 
 @generation_bp.route("/events/<session_id>")
@@ -71,3 +72,36 @@ def api_download_zip():
         return jsonify({"error": "Błąd generowania paczki ZIP"}), 500
         
     return jsonify({"url": zip_url})
+
+@generation_bp.route("/api/batch-jobs", methods=["GET"])
+def api_batch_jobs():
+    """Zwraca listę realnych zadań Batch pobranych z Google API."""
+    try:
+        from services.batch_api_service import list_batch_jobs
+        jobs = list_batch_jobs()
+        return jsonify(jobs)
+    except Exception as e:
+        print(f"⚠️ Błąd pobierania zadań z Google: {e}")
+        return jsonify([])
+
+@generation_bp.route("/api/batch-results/<path:job_id>", methods=["POST"])
+def api_batch_results(job_id):
+    """Przetwarza wyniki zakończonego zadania batch w tle (kompatybilność z Render)."""
+    import threading
+    import uuid
+    from services.batch_api_service import process_batch_results
+    from services.generation_service import generation_events, generation_results
+
+    session_id = str(uuid.uuid4())[:8]
+    generation_events[session_id] = []
+    
+    def run_import():
+        try:
+            result = process_batch_results(job_id)
+            generation_results[session_id] = result
+            generation_events[session_id].append({"type": "done", "success": True, "count": result.get("count", 0)})
+        except Exception as e:
+            generation_events[session_id].append({"type": "error", "message": str(e)})
+
+    threading.Thread(target=run_import).start()
+    return jsonify({"session_id": session_id})
