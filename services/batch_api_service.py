@@ -138,7 +138,11 @@ def process_batch_results(job_name):
     results_count = 0
     for i, line in enumerate(file_content.splitlines()):
         if not line: continue
-        parsed = json.loads(line)
+        try:
+            parsed = json.loads(line)
+        except json.JSONDecodeError as e:
+            print(f"⚠️ Błąd dekodowania JSON w linii {i+1}: {e}")
+            continue
         
         if 'response' in parsed and parsed['response']:
             # Szukamy części IMAGE w odpowiedzi
