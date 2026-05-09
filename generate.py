@@ -14,10 +14,10 @@ import time
 import json
 
 import config
-from models import Author, PuzzleIdea, load_author, list_authors
-from prompt_engine import generate_puzzle_ideas
-from image_generator import generate_image
-from free_generator import generate_image_free
+from models import Author, load_author, list_authors
+from core.prompt_engine import generate_puzzle_ideas
+from core.image_generator import generate_image
+from core.free_generator import generate_image_free
 
 
 def print_banner():

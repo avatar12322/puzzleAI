@@ -1,5 +1,4 @@
 import os
-import json
 import queue
 import threading
 import time
@@ -7,10 +6,10 @@ import uuid
 
 import config
 from models import load_author
-from prompt_engine import generate_puzzle_ideas
-from image_generator import generate_image
-from free_generator import generate_image_free
-from pixel_converter import convert_to_pixel_art
+from core.prompt_engine import generate_puzzle_ideas
+from core.image_generator import generate_image
+from core.free_generator import generate_image_free
+from core.pixel_converter import convert_to_pixel_art
 
 from services.cloudinary_service import upload_image
 
@@ -216,7 +215,6 @@ def _run_generation_thread(session_id, author_name, count, use_gemini, use_flux,
 
                 if generate_image(full_prompt, path):
                     q.put({"type": "status", "message": f"Przesyłam do chmury..."})
-                    from services.cloudinary_service import upload_image
                     cost = calculate_generation_cost(0, 0, gen_mode, model_type='image')
                     remote_url = upload_image(path, folder=f"puzzle_ai/{author.slug}", metadata={"cost": round(cost, 2)})
                     print(f"DEBUG (Gemini): Oryginał: {remote_url}")

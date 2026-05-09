@@ -52,21 +52,21 @@ def generate_puzzle_ideas(author: Author, count: int, q=None) -> list[PuzzleIdea
     """
     all_ideas = []
     chunk_size = 5
-    
+
     negative_section = ""
     if author.negative_prompts:
         negative_section = f"- Things to AVOID: {', '.join(author.negative_prompts)}"
 
     total_chunks = (count + chunk_size - 1) // chunk_size
-    
+
     for chunk_idx in range(total_chunks):
         current_chunk_count = min(chunk_size, count - len(all_ideas))
         if current_chunk_count <= 0: break
-        
+
         # Raportujemy postęp przed startem paczki
         if q:
             q.put({
-                "type": "generating", 
+                "type": "generating",
                 "title": f"Wymyślam sceny ({len(all_ideas) + 1}-{len(all_ideas) + current_chunk_count})",
                 "model": "Gemini Flash",
                 "current": len(all_ideas),
@@ -83,11 +83,11 @@ def generate_puzzle_ideas(author: Author, count: int, q=None) -> list[PuzzleIdea
 
         max_retries = 2
         chunk_success = False
-        
+
         for attempt in range(max_retries + 1):
             try:
                 print(f"  🧠 Generuję paczkę {chunk_idx + 1}/{total_chunks} ({current_chunk_count} pomysłów)...")
-                
+
                 response = client.models.generate_content(
                     model=config.TEXT_MODEL,
                     contents=prompt,
@@ -102,7 +102,7 @@ def generate_puzzle_ideas(author: Author, count: int, q=None) -> list[PuzzleIdea
                     raise ValueError("Gemini zwrócił pustą odpowiedź")
 
                 raw_text = response.text.strip()
-                
+
                 # Wyciąganie JSON-a (tablicy)
                 json_match = re.search(r'\[\s*\{.*\}\s*\]', raw_text, re.DOTALL)
                 if json_match:
@@ -110,12 +110,12 @@ def generate_puzzle_ideas(author: Author, count: int, q=None) -> list[PuzzleIdea
                 else:
                     raw_text = re.sub(r'^```(?:json)?\s*\n?', '', raw_text, flags=re.MULTILINE)
                     raw_text = re.sub(r'\n?```\s*$', '', raw_text, flags=re.MULTILINE)
-                
+
                 # Czyszczenie markdown
                 raw_text = raw_text.replace("**", "")
-                
+
                 ideas_data = json.loads(raw_text)
-                
+
                 for item in ideas_data:
                     if "title" not in item or "scene" not in item:
                         continue
@@ -124,7 +124,7 @@ def generate_puzzle_ideas(author: Author, count: int, q=None) -> list[PuzzleIdea
                 # Raportujemy postęp po udanej paczce
                 if q:
                     q.put({
-                        "type": "generating", 
+                        "type": "generating",
                         "title": f"Gotowe {len(all_ideas)}/{count} scen",
                         "model": "Gemini Flash",
                         "current": len(all_ideas),
@@ -145,14 +145,14 @@ def generate_puzzle_ideas(author: Author, count: int, q=None) -> list[PuzzleIdea
                 else:
                     # Jeśli to ostatnia próba, wyrzucamy błąd wyżej
                     raise Exception(f"Błąd po {max_retries+1} próbach: {str(e)}")
-        
+
         if not chunk_success:
             raise Exception(f"Nie udało się wygenerować paczki {chunk_idx + 1}. Spróbuj ponownie za chwilę.")
 
     # Końcowy raport postępu przed wysyłką Batch
     if q:
         q.put({
-            "type": "generating", 
+            "type": "generating",
             "title": "Przygotowywanie wysyłki Batch...",
             "model": "System",
             "current": count,

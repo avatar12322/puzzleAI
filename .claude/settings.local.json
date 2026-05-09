@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\dev\\\\puzzleAI\" -Force)",
+      "Bash(Select-Object Name, Mode)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(git -C c:/dev/puzzleAI log --oneline)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\dev\\\\puzzleAI\" -Recurse -Force | Select-Object FullName, @{Name=\"Type\"; Expression={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}} | Sort-Object FullName | Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\dev\\\\puzzleAI\" -File | Where-Object { $_.Extension -match '\\\\.\\(md|txt|yml|yaml|json|env\\)$' } | Select-Object Name)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\dev\\\\puzzleAI\" -File -Depth 0 | Select-Object Name, @{Name=\"Size\"; Expression={[math]::Round\\($_.Length/1KB, 2\\)}} | Sort-Object Name)"
+    ]
+  }
+}

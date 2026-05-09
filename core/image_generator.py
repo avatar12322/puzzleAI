@@ -87,21 +87,21 @@ def _generate_with_gemini(full_prompt: str, output_path: str) -> bool:
 def generate_image(full_prompt: str, output_path: str, retries: int = 3) -> bool:
     """
     Generuje obraz na podstawie pełnego promptu i zapisuje go na dysku.
-    
+
     Automatycznie wybiera API na podstawie modelu (Imagen vs Gemini).
-    
+
     Args:
         full_prompt: Kompletny prompt (szablon stylu + scena)
         output_path: Ścieżka do zapisu pliku JPEG
         retries: Liczba prób w razie błędu
-        
+
     Returns:
         True jeśli sukces, False jeśli niepowodzenie
     """
     output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-    
+
     use_imagen = _is_imagen_model(config.IMAGE_MODEL)
 
     for attempt in range(1, retries + 1):
@@ -113,7 +113,7 @@ def generate_image(full_prompt: str, output_path: str, retries: int = 3) -> bool
 
             if success:
                 return True
-            
+
             print(f"    ⚠️  Brak obrazu w odpowiedzi (próba {attempt}/{retries})")
             if attempt < retries:
                 time.sleep(2)
